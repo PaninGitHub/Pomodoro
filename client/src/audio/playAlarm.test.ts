@@ -3,15 +3,15 @@ import { playAlarm, resolveAudioUrl } from './playAlarm';
 
 describe('resolveAudioUrl', () => {
   it('returns dev-audio path when env base is not set', () => {
-    expect(resolveAudioUrl('bell.mp3', undefined)).toBe('/dev-audio/bell.mp3');
+    expect(resolveAudioUrl('bell.wav', undefined)).toBe('/dev-audio/bell.wav');
   });
 
   it('returns prefixed URL when env base is set', () => {
-    expect(resolveAudioUrl('bell.mp3', 'https://r2.example.com')).toBe('https://r2.example.com/bell.mp3');
+    expect(resolveAudioUrl('bell.wav', 'https://r2.example.com')).toBe('https://r2.example.com/bell.wav');
   });
 
   it('strips trailing slash on env base', () => {
-    expect(resolveAudioUrl('bell.mp3', 'https://r2.example.com/')).toBe('https://r2.example.com/bell.mp3');
+    expect(resolveAudioUrl('bell.wav', 'https://r2.example.com/')).toBe('https://r2.example.com/bell.wav');
   });
 });
 

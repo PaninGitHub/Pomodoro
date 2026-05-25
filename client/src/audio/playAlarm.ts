@@ -16,9 +16,10 @@ export function resolveAudioUrl(filename: string, baseUrl: string | undefined): 
 }
 
 export async function playAlarm(opts: PlayAlarmOptions): Promise<void> {
-  // TODO(phase-2): currently always plays bell.mp3.
+  // TODO(phase-2): currently always plays bell.wav.
   // Phase 2 Settings will pass alarm_sound key; map to filename here.
-  const filename = 'bell.mp3';
+  // TODO(phase-7): swap to .mp3 when Cloudflare R2 hosts real audio assets.
+  const filename = 'bell.wav';
   const baseUrl = opts.baseUrl ?? (import.meta.env.VITE_AUDIO_BASE_URL as string | undefined);
   const url = resolveAudioUrl(filename, baseUrl);
   const volume = Math.max(0, Math.min(1, opts.volume / 100));

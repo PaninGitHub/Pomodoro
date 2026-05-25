@@ -8,7 +8,7 @@
 
 | File       | Source URL | Size | License | Notes |
 |------------|------------|------|---------|-------|
-| `bell.mp3` | _to be filled_ | _to be filled_ | CC0 | Single bell tone, ~0.5–1.5s. Used as the alarm sound until Phase 7. |
+| `bell.wav` | _user-provided; URL TBD — please fill_ | 444 KB | CC0 (per user) | Single bell tone. WAV format for Phase 1 dev; Phase 7 R2 swap will use compressed MP3. Larger than ideal but acceptable since dev-audio/ is removed in Phase 7. |
 
 ## How to add the file
 
