@@ -1,0 +1,17 @@
+{
+  "name": "simplidoro",
+  "version": "0.0.0",
+  "private": true,
+  "engines": { "node": ">=20.0.0" },
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm -w server run dev\" \"npm -w client run dev\"",
+    "migrate": "npm -w server run migrate",
+    "build": "npm -w client run build && npm -w server run build",
+    "smoke": "node scripts/smoke.js",
+    "test": "npm -w server run test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
