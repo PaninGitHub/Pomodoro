@@ -1,5 +1,5 @@
-import { Landing } from './pages/Landing';
+import { Router } from './router';
 
 export function App(): JSX.Element {
-  return <Landing />;
+  return <Router />;
 }
