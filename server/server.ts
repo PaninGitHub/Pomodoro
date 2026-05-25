@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import path from 'node:path';
+import dotenv from 'dotenv';
+
+// Load .env from monorepo root regardless of cwd (npm runs us from server/).
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 import { loadConfig, ConfigError } from './utils/env';
 import { initDb, ping, closeDb } from './db/db';
 import { buildApp } from './app';

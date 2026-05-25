@@ -12,10 +12,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import postgres from 'postgres';
+import dotenv from 'dotenv';
 import { loadConfig } from '../utils/env';
 import { initDb, closeDb } from './db';
 import { log } from '../utils/logger';
-import 'dotenv/config';
+
+// Load .env from monorepo root regardless of cwd (npm runs us from server/).
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const MIGRATIONS_FILE_RE = /^\d{3}_[a-z0-9_]+\.sql$/;
 
