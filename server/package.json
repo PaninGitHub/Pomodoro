@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate": "ts-node db/migrate.ts",
-    "test": "vitest run"
+    "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
     "connect-pg-simple": "^9.0.1",
