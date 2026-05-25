@@ -29,3 +29,6 @@ coverage/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Local planning docs (not committed)
+docs/
