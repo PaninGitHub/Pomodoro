@@ -1,0 +1,16 @@
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-active), system-ui, sans-serif;
+}
