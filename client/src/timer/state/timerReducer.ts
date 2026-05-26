@@ -49,6 +49,7 @@ export const initialTimerState: TimerState = {
 export type TimerAction =
   | { type: 'SELECT_MODE'; mode: TimerMode }
   | { type: 'SET_DURATION'; minutes: number }
+  | { type: 'ADJUST_TOTAL'; deltaMs: number }
   | { type: 'SET_AUTO_START_BREAKS'; value: boolean }
   | { type: 'SET_AUTO_START_POMODOROS'; value: boolean }
   | { type: 'START'; now: number }
@@ -90,7 +91,18 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       return { ...state, mode: action.mode };
     case 'SET_DURATION':
       if (state.status !== 'idle') return state;
-      return { ...state, totalMs: action.minutes * 60 * 1000 };
+      // Round to nearest second so decimal-minute inputs (e.g. 1.567) snap to
+      // a whole-second total; avoids sub-second drift in display formatting.
+      return { ...state, totalMs: Math.round(action.minutes * 60) * 1000 };
+    case 'ADJUST_TOTAL': {
+      // Mid-session +/- adjust: change the period length without disturbing
+      // elapsed time. Allowed during running and paused states (idle uses
+      // SET_DURATION). Floors total at 1 second; if the adjustment would
+      // make remaining negative, the period-complete effect handles it.
+      if (state.status !== 'running' && state.status !== 'paused') return state;
+      const next = state.totalMs + action.deltaMs;
+      return { ...state, totalMs: Math.max(1000, next) };
+    }
     case 'SET_AUTO_START_BREAKS':
       return { ...state, autoStartBreaks: action.value };
     case 'SET_AUTO_START_POMODOROS':

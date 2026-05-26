@@ -18,9 +18,14 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   useEffect(() => {
     if (state.status !== 'running') return;
+    // Fix for start/resume glitch: snap `now` to wall-clock time immediately
+    // when entering running state. Without this, the first render after
+    // status change uses a stale `now` (last tick from before the pause),
+    // causing computeRemaining to return wildly wrong values for one render.
+    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), TICK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [state.status]);
+  }, [state.status, state.startTimestamp]);
 
   const remainingMs = state.status === 'running'
     ? computeRemaining(state, now)

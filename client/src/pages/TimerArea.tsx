@@ -64,18 +64,24 @@ export function TimerArea(): JSX.Element {
   ]);
 
   function adjustDuration(deltaMinutes: number) {
-    // TODO(phase-2): proper "+/- mid-session" should adjust totalMs in the reducer
-    // via a dedicated ADJUST_TOTAL action that works in running state.
-    // Phase 1 uses SET_DURATION which only works in idle.
-    const currentMinutes = Math.round(state.totalMs / 60000);
-    const next = Math.max(1, currentMinutes + deltaMinutes);
+    const deltaMs = deltaMinutes * 60 * 1000;
     if (state.status === 'idle') {
+      // Idle: SET_DURATION (replaces totalMs absolutely). Use minutes API.
+      const currentMinutes = state.totalMs / 60000;
+      const next = Math.max(0.0167, currentMinutes + deltaMinutes); // floor at 1 second
       dispatch({ type: 'SET_DURATION', minutes: next });
+    } else if (state.status === 'running' || state.status === 'paused') {
+      // Mid-session: ADJUST_TOTAL preserves elapsed time, only nudges length.
+      dispatch({ type: 'ADJUST_TOTAL', deltaMs });
     }
   }
 
   // Setup UI is shown when idle (mode-selection screen).
   const showSetup = state.status === 'idle';
+  // Mid-session adjust button is visible whenever a period is active in ANY
+  // mode (per user feedback in Phase 1 — replaces the idle-only Freestyle
+  // placement which was redundant with FreestyleSetup's duration input).
+  const showAdjust = state.status === 'running' || state.status === 'paused';
 
   return (
     <div className="w-full flex flex-col items-center gap-6 p-4 md:p-8">
@@ -85,9 +91,7 @@ export function TimerArea(): JSX.Element {
       {showSetup && state.mode === 'timer'     && <DurationInput />}
       {showSetup && state.mode === 'freestyle' && <FreestyleSetup />}
       {showSetup && state.mode === 'pomodoro'  && <PomodoroSetup />}
-      {state.mode === 'freestyle' && state.status === 'idle' && (
-        <CustomizableAdjustButton onAdjust={adjustDuration} />
-      )}
+      {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} />}
       <Controls />
       {state.status === 'idle' && <ModeSelector />}
     </div>

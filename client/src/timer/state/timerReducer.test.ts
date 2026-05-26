@@ -143,6 +143,53 @@ describe('timerReducer — Pomodoro cycling', () => {
   });
 });
 
+describe('timerReducer — ADJUST_TOTAL mid-session', () => {
+  it('extends totalMs while running', () => {
+    const running = timerReducer(initialTimerState, { type: 'START', now: NOW });
+    const adjusted = timerReducer(running, { type: 'ADJUST_TOTAL', deltaMs: 60_000 });
+    expect(adjusted.totalMs).toBe(initialTimerState.totalMs + 60_000);
+    expect(adjusted.status).toBe('running');
+    expect(adjusted.startTimestamp).toBe(NOW);
+  });
+
+  it('shortens totalMs while paused', () => {
+    const running = timerReducer(initialTimerState, { type: 'START', now: NOW });
+    const paused = timerReducer(running, { type: 'PAUSE', now: NOW + 5000 });
+    const adjusted = timerReducer(paused, { type: 'ADJUST_TOTAL', deltaMs: -60_000 });
+    expect(adjusted.totalMs).toBe(initialTimerState.totalMs - 60_000);
+    expect(adjusted.status).toBe('paused');
+    expect(adjusted.accumulatedMs).toBe(5000);
+  });
+
+  it('floors totalMs at 1 second on excessive negative delta', () => {
+    const running = timerReducer(initialTimerState, { type: 'START', now: NOW });
+    const adjusted = timerReducer(running, { type: 'ADJUST_TOTAL', deltaMs: -999_999_999 });
+    expect(adjusted.totalMs).toBe(1000);
+  });
+
+  it('is no-op when idle', () => {
+    const adjusted = timerReducer(initialTimerState, { type: 'ADJUST_TOTAL', deltaMs: 60_000 });
+    expect(adjusted.totalMs).toBe(initialTimerState.totalMs);
+  });
+
+  it('is no-op when completed', () => {
+    const completed: TimerState = { ...initialTimerState, status: 'completed' };
+    const adjusted = timerReducer(completed, { type: 'ADJUST_TOTAL', deltaMs: 60_000 });
+    expect(adjusted.totalMs).toBe(initialTimerState.totalMs);
+  });
+});
+
+describe('timerReducer — SET_DURATION rounds to second', () => {
+  it('rounds 1.567 minutes to 94 seconds (94000 ms)', () => {
+    const s = timerReducer(initialTimerState, { type: 'SET_DURATION', minutes: 1.567 });
+    expect(s.totalMs).toBe(94_000);
+  });
+  it('keeps whole-minute inputs exact', () => {
+    const s = timerReducer(initialTimerState, { type: 'SET_DURATION', minutes: 25 });
+    expect(s.totalMs).toBe(25 * 60 * 1000);
+  });
+});
+
 describe('timerReducer — auto-start preferences', () => {
   it('SET_AUTO_START_BREAKS updates flag', () => {
     const s = timerReducer(initialTimerState, { type: 'SET_AUTO_START_BREAKS', value: true });

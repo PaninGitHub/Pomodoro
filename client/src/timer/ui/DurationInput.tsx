@@ -25,10 +25,11 @@ export function DurationInput(): JSX.Element | null {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-sm text-text-secondary">
-        Duration (minutes)
+        Duration (minutes — decimals OK, rounds to nearest second)
         <input
           type="number"
-          min={1}
+          step="any"
+          min={0.0167}
           max={MAX_PERIOD_MINUTES}
           value={raw}
           onChange={(e) => commit(e.target.value)}
