@@ -6,6 +6,9 @@ export function FreestyleSetup(): JSX.Element | null {
   const { state, dispatch } = useTimer();
   const [durationRaw, setDurationRaw] = useState<string>((state.totalMs / 60000).toString());
   const [durationError, setDurationError] = useState<string | null>(null);
+  // Local string state for ratio so the user can clear / partially type without
+  // the field snapping back to the last valid value mid-edit.
+  const [ratioRaw, setRatioRaw] = useState<string>(state.freestyleRatio.toString());
 
   if (state.status !== 'idle') return null;
 
@@ -18,9 +21,21 @@ export function FreestyleSetup(): JSX.Element | null {
   }
 
   function onRatioChange(next: string) {
+    // Always update the visible field so the user can backspace, type partial
+    // values, etc. Only dispatch to the reducer when the value parses cleanly.
+    setRatioRaw(next);
     const n = Number(next);
     if (!Number.isFinite(n) || n <= 0) return;
     dispatch({ type: 'SET_FREESTYLE_RATIO', value: n });
+  }
+
+  function onRatioBlur() {
+    // On blur, if the field is empty or invalid, reset to the last committed
+    // value so the input never gets stuck in a confusing empty state.
+    const n = Number(ratioRaw);
+    if (!Number.isFinite(n) || n <= 0) {
+      setRatioRaw(state.freestyleRatio.toString());
+    }
   }
 
   function onAccumulationChange(checked: boolean) {
@@ -43,9 +58,10 @@ export function FreestyleSetup(): JSX.Element | null {
       <label className="text-sm text-text-secondary">
         Ratio (X:1) — every X min of work earns 1 min of break
         <input
-          type="number" min={0.01} step={0.01}
-          value={state.freestyleRatio}
+          type="number" min={0.01} step="any"
+          value={ratioRaw}
           onChange={(e) => onRatioChange(e.target.value)}
+          onBlur={onRatioBlur}
           className="ml-2 px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary w-24"
         />
       </label>
