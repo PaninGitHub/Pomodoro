@@ -9,7 +9,7 @@
     "migrate": "npm -w server run migrate",
     "build": "npm -w client run build && npm -w server run build",
     "smoke": "node scripts/smoke.js",
-    "test": "npm -w server run test"
+    "test": "npm -w server run test && npm -w client run test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

@@ -1,0 +1,25 @@
+/* theme.css — global theme variables.
+ * BW Dark Mode default per Batch B §F-25.
+ * Adding a new theme = add a [data-theme="X"] block below.
+ */
+
+:root,
+[data-theme="bw-dark"] {
+  /* 8-slot palette (theme-specific) */
+  --color-bg-primary:    #0a0a0a;
+  --color-bg-secondary:  #141414;
+  --color-bg-tertiary:   #1f1f1f;
+  --color-text-primary:  #f5f5f5;
+  --color-text-secondary:#a0a0a0;
+  --color-accent:        #ffffff;
+  --color-border:        #2e2e2e;
+  --color-timer:         #ffffff;
+
+  /* 3 fixed semantic (identical across all themes) */
+  --color-error:   #e05252;
+  --color-warning: #d4a017;
+  --color-success: #4caf82;
+
+  /* Font (set by useFont hook on mount) */
+  --font-active: 'Inter';
+}

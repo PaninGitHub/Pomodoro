@@ -1,5 +1,7 @@
-import { Landing } from './pages/Landing';
+import { Router } from './router';
+import { useFont } from './fonts/useFont';
 
 export function App(): JSX.Element {
-  return <Landing />;
+  useFont();
+  return <Router />;
 }
