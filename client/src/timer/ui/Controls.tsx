@@ -5,9 +5,12 @@ export function Controls(): JSX.Element {
 
   function onStartInitial() {
     // Pomodoro idle → START_POMODORO (initializes pomodoro state to work/period 1).
-    // Timer / Freestyle idle → plain START.
+    // Freestyle idle → START_FREESTYLE (snapshots workDurationMs for break/next-work cycle).
+    // Timer idle → plain START.
     if (state.mode === 'pomodoro') {
       dispatch({ type: 'START_POMODORO', now: Date.now() });
+    } else if (state.mode === 'freestyle') {
+      dispatch({ type: 'START_FREESTYLE', now: Date.now() });
     } else {
       dispatch({ type: 'START', now: Date.now() });
     }
@@ -40,7 +43,17 @@ export function Controls(): JSX.Element {
         </div>
       );
     }
-    // Timer / Freestyle completed: session-end-only.
+    // Freestyle between periods: only reachable after a break completes
+    // (work→break auto-starts). Offer Start to begin the next work period.
+    if (state.mode === 'freestyle' && state.freestyle) {
+      return (
+        <div className="flex gap-2 items-center flex-wrap justify-center">
+          <button type="button" onClick={onStartNext} className={primary}>Start Work</button>
+          <button type="button" onClick={onEndSession} className={btn}>End Session</button>
+        </div>
+      );
+    }
+    // Timer mode completed: session-end-only.
     return <button type="button" onClick={onEndSession} className={primary}>End Session</button>;
   }
 

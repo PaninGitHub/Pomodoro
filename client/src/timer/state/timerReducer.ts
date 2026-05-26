@@ -1,10 +1,19 @@
+import { earnedBreakMs, roundTo15Seconds } from '../math/freestyleMath';
+
 export type TimerMode = 'timer' | 'pomodoro' | 'freestyle';
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
 export type PomodoroPeriodType = 'work' | 'short_break' | 'long_break';
+export type FreestylePeriodType = 'work' | 'break';
 
 export interface PomodoroState {
   periodType: PomodoroPeriodType;
   workCount: number; // completed work periods so far in this session
+}
+
+export interface FreestyleState {
+  periodType: FreestylePeriodType;
+  workDurationMs: number;  // preserved across work→break→work cycle (user's set duration)
+  bankedMs: number;        // unspent break time from prior periods (Phase 2 surfaces this)
 }
 
 export interface TimerState {
@@ -14,9 +23,13 @@ export interface TimerState {
   startTimestamp: number;  // 0 when not running
   accumulatedMs: number;   // snapshot of elapsed from prior runs
   pomodoro: PomodoroState | null;
+  freestyle: FreestyleState | null;
   // TODO(phase-2): move to settings DB/cookie.
   autoStartBreaks: boolean;
   autoStartPomodoros: boolean;
+  // TODO(phase-2): move to settings DB/cookie. Per F-30, freestyle defaults are ratio 5:1 and accumulation ON.
+  freestyleRatio: number;
+  freestyleAccumulation: boolean;
 }
 
 // =====================================================================
@@ -33,6 +46,10 @@ export const POMODORO_DEFAULTS = {
   longBreakEvery: 4,
 } as const;
 
+// TODO(phase-2): replace with settings.freestyle_ratio + settings.freestyle_accumulate.
+const FREESTYLE_DEFAULT_RATIO = 5;
+const FREESTYLE_DEFAULT_ACCUMULATION = true;
+
 const DEFAULT_TIMER_MINUTES = 25;
 
 export const initialTimerState: TimerState = {
@@ -42,8 +59,11 @@ export const initialTimerState: TimerState = {
   startTimestamp: 0,
   accumulatedMs: 0,
   pomodoro: null,
+  freestyle: null,
   autoStartBreaks: false,
   autoStartPomodoros: false,
+  freestyleRatio: FREESTYLE_DEFAULT_RATIO,
+  freestyleAccumulation: FREESTYLE_DEFAULT_ACCUMULATION,
 };
 
 export type TimerAction =
@@ -52,8 +72,11 @@ export type TimerAction =
   | { type: 'ADJUST_TOTAL'; deltaMs: number }
   | { type: 'SET_AUTO_START_BREAKS'; value: boolean }
   | { type: 'SET_AUTO_START_POMODOROS'; value: boolean }
+  | { type: 'SET_FREESTYLE_RATIO'; value: number }
+  | { type: 'SET_FREESTYLE_ACCUMULATION'; value: boolean }
   | { type: 'START'; now: number }
   | { type: 'START_POMODORO'; now: number }
+  | { type: 'START_FREESTYLE'; now: number }
   | { type: 'PAUSE'; now: number }
   | { type: 'RESUME'; now: number }
   | { type: 'ABANDON' }
@@ -107,10 +130,15 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       return { ...state, autoStartBreaks: action.value };
     case 'SET_AUTO_START_POMODOROS':
       return { ...state, autoStartPomodoros: action.value };
+    case 'SET_FREESTYLE_RATIO':
+      if (action.value <= 0) return state;
+      // Enforce max 2 decimal places per Batch B C-04
+      return { ...state, freestyleRatio: Math.round(action.value * 100) / 100 };
+    case 'SET_FREESTYLE_ACCUMULATION':
+      return { ...state, freestyleAccumulation: action.value };
     case 'START':
-      // Used for Timer, Freestyle, AND starting the next prepared period
-      // within a Pomodoro session (where pomodoro state already encodes
-      // the upcoming period type via PERIOD_COMPLETE).
+      // Used for Timer, Freestyle (when continuing post-break), AND starting
+      // the next prepared period within a Pomodoro session.
       return { ...state, status: 'running', startTimestamp: action.now, accumulatedMs: 0 };
     case 'START_POMODORO':
       // Begins a fresh Pomodoro session at work period 1.
@@ -121,6 +149,17 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         accumulatedMs: 0,
         totalMs: POMODORO_DEFAULTS.workMinutes * 60 * 1000,
         pomodoro: { periodType: 'work', workCount: 0 },
+      };
+    case 'START_FREESTYLE':
+      // Begins a fresh Freestyle session at work period.
+      // Preserves the user-set work duration so the break→next-work transition
+      // can restore it (since totalMs gets overwritten by earned break time).
+      return {
+        ...state,
+        status: 'running',
+        startTimestamp: action.now,
+        accumulatedMs: 0,
+        freestyle: { periodType: 'work', workDurationMs: state.totalMs, bankedMs: 0 },
       };
     case 'PAUSE':
       if (state.status !== 'running') return state;
@@ -134,16 +173,13 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       if (state.status !== 'paused') return state;
       return { ...state, status: 'running', startTimestamp: action.now };
     case 'ABANDON':
-      // Per F-05: timer resets, no reflection, Pomodoro count does not increment.
-      // Phase 1 simplification: abandon ends the Pomodoro session entirely
-      // (clears pomodoro state). Phase 2 will refine to "reset just this
-      // period and stay in session" if desired.
       return {
         ...state,
         status: 'idle',
         startTimestamp: 0,
         accumulatedMs: 0,
         pomodoro: null,
+        freestyle: null,
       };
     case 'END_SESSION':
       return {
@@ -152,20 +188,66 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         startTimestamp: 0,
         accumulatedMs: 0,
         pomodoro: null,
+        freestyle: null,
       };
     case 'PERIOD_COMPLETE': {
       const base = { ...state, startTimestamp: 0, accumulatedMs: 0 };
-      if (state.mode !== 'pomodoro' || !state.pomodoro) {
-        return { ...base, status: 'completed' };
+
+      // --- Pomodoro cycling ---
+      if (state.mode === 'pomodoro' && state.pomodoro) {
+        const next = nextPomodoroPeriod(state.pomodoro);
+        return {
+          ...base,
+          status: 'completed',
+          totalMs: next.totalMs,
+          pomodoro: { periodType: next.periodType, workCount: next.workCount },
+        };
       }
-      // Pomodoro: prepare the next period transparently.
-      const next = nextPomodoroPeriod(state.pomodoro);
-      return {
-        ...base,
-        status: 'completed',
-        totalMs: next.totalMs,
-        pomodoro: { periodType: next.periodType, workCount: next.workCount },
-      };
+
+      // --- Freestyle cycling ---
+      if (state.mode === 'freestyle' && state.freestyle) {
+        const fs = state.freestyle;
+        if (fs.periodType === 'work') {
+          // Work period complete → compute earned break, auto-start it.
+          // Phase 1 simplification: bankedMs is always 0 here because Phase 1
+          // has no "manually end break early" UI, so no unspent time gets
+          // accrued. Phase 2 will add that, and accumulation will matter.
+          const earnedRaw = earnedBreakMs(fs.workDurationMs, state.freestyleRatio);
+          const earnedRounded = roundTo15Seconds(earnedRaw);
+          const carryBanked = state.freestyleAccumulation ? fs.bankedMs : 0;
+          const breakTotal = earnedRounded + carryBanked;
+
+          if (breakTotal <= 0) {
+            // Edge case: no break earned (ratio so high earned rounded to 0).
+            // End the session cleanly rather than start a zero-length break.
+            return {
+              ...base,
+              status: 'idle',
+              freestyle: null,
+            };
+          }
+
+          return {
+            ...base,
+            status: 'running', // auto-start break (Phase 1 has no toggle for this in Freestyle)
+            startTimestamp: action.now,
+            totalMs: breakTotal,
+            freestyle: { periodType: 'break', workDurationMs: fs.workDurationMs, bankedMs: 0 },
+          };
+        } else {
+          // Break complete → restore work duration, wait for user to Start next.
+          // bankedMs unchanged (no unspent time when timer hits 0 naturally).
+          return {
+            ...base,
+            status: 'completed',
+            totalMs: fs.workDurationMs,
+            freestyle: { periodType: 'work', workDurationMs: fs.workDurationMs, bankedMs: fs.bankedMs },
+          };
+        }
+      }
+
+      // --- Timer mode / no special cycling ---
+      return { ...base, status: 'completed' };
     }
     default:
       return state;

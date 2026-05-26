@@ -6,7 +6,11 @@ export function PeriodIndicator(): JSX.Element {
   if (state.mode === 'timer') {
     label = 'Timer';
   } else if (state.mode === 'freestyle') {
-    label = 'Freestyle · Work';
+    if (!state.freestyle) {
+      label = 'Freestyle';
+    } else {
+      label = state.freestyle.periodType === 'work' ? 'Freestyle · Work' : 'Freestyle · Break';
+    }
   } else {
     // pomodoro
     if (!state.pomodoro) {
