@@ -3,12 +3,10 @@ import { useTimer } from '../timer/state/useTimer';
 import { TimerDisplay } from '../timer/ui/TimerDisplay';
 import { ModeTabs } from '../timer/ui/ModeTabs';
 import { Controls } from '../timer/ui/Controls';
-import { DurationInput } from '../timer/ui/DurationInput';
-import { FreestyleSetup } from '../timer/ui/FreestyleSetup';
-import { PomodoroSetup } from '../timer/ui/PomodoroSetup';
 import { PeriodIndicator } from '../timer/ui/PeriodIndicator';
 import { CustomizableAdjustButton } from '../timer/ui/CustomizableAdjustButton';
 import { TwoTabBanner } from '../timer/ui/TwoTabBanner';
+import { TimerActionBar } from '../timer/ui/TimerActionBar';
 import { useVisibilityChange } from '../timer/hooks/useVisibilityChange';
 import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
@@ -25,8 +23,6 @@ export function TimerArea(): JSX.Element {
   const { otherTabRunning } = useBroadcastChannel({ isRunning: state.status === 'running' });
 
   // Period end detection: when remaining hits 0 while running, fire alarm + completion.
-  // The reducer's PERIOD_COMPLETE already prepares the next Pomodoro period (if any),
-  // so this effect doesn't need to know about cycling.
   useEffect(() => {
     if (state.status === 'running' && remainingMs === 0) {
       void playAlarm({
@@ -36,8 +32,7 @@ export function TimerArea(): JSX.Element {
       });
       // C-06 predicate: in Pomodoro mode, if the user added tasks during the
       // session AND all are complete, end the session instead of preparing
-      // the next break. Phase 1 had no to-do list so this was a no-op; Phase 2
-      // wires the predicate using TasksContext.
+      // the next break.
       const justFinishedWork =
         state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work';
       const allTasksComplete = tasks.length > 0 && tasks.every((t) => t.is_complete);
@@ -64,7 +59,7 @@ export function TimerArea(): JSX.Element {
     if (state.status !== 'running') return;
     const elapsed = state.accumulatedMs + (Date.now() - state.startTimestamp);
     if (isPeriodOverCap(elapsed)) {
-      alert(PERIOD_CAP_MESSAGE); // TODO(phase-2): replace with a proper modal.
+      alert(PERIOD_CAP_MESSAGE);
       dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
     }
   }, [state, dispatch]);
@@ -92,21 +87,14 @@ export function TimerArea(): JSX.Element {
   function adjustDuration(deltaMinutes: number) {
     const deltaMs = deltaMinutes * 60 * 1000;
     if (state.status === 'idle') {
-      // Idle: SET_DURATION (replaces totalMs absolutely). Use minutes API.
       const currentMinutes = state.totalMs / 60000;
-      const next = Math.max(0.0167, currentMinutes + deltaMinutes); // floor at 1 second
+      const next = Math.max(0.0167, currentMinutes + deltaMinutes);
       dispatch({ type: 'SET_DURATION', minutes: next });
     } else if (state.status === 'running' || state.status === 'paused') {
-      // Mid-session: ADJUST_TOTAL preserves elapsed time, only nudges length.
       dispatch({ type: 'ADJUST_TOTAL', deltaMs });
     }
   }
 
-  // Setup UI is shown when idle (mode-selection screen).
-  const showSetup = state.status === 'idle';
-  // Mid-session adjust button is visible whenever a period is active in ANY
-  // mode (per user feedback in Phase 1 — replaces the idle-only Freestyle
-  // placement which was redundant with FreestyleSetup's duration input).
   const showAdjust = state.status === 'running' || state.status === 'paused';
 
   return (
@@ -115,11 +103,12 @@ export function TimerArea(): JSX.Element {
       <ModeTabs />
       <PeriodIndicator />
       <TimerDisplay />
-      {showSetup && state.mode === 'timer'     && <DurationInput />}
-      {showSetup && state.mode === 'freestyle' && <FreestyleSetup />}
-      {showSetup && state.mode === 'pomodoro'  && <PomodoroSetup />}
+      {/* Per-mode setup components removed — duration is now click-to-edit on the
+          display, and other mode-specific settings live in PerModeSettingsPopup
+          opened from the gear icon in TimerActionBar. */}
       {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} step={settings.timer_adjust_step_minutes} />}
       <Controls />
+      <TimerActionBar />
       <TodoList />
     </div>
   );

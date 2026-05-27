@@ -2,6 +2,7 @@ import { useSettings } from '../useSettings';
 
 const inputCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary w-24';
 const labelCls = 'flex items-center gap-2 text-sm text-text-secondary';
+const subheaderCls = 'text-xs uppercase tracking-widest text-text-secondary mt-2 mb-1';
 
 export function TimerSettings(): JSX.Element {
   const { settings, updateSettings } = useSettings();
@@ -19,6 +20,8 @@ export function TimerSettings(): JSX.Element {
     <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
       <h3 className="text-lg text-text-primary">Timer</h3>
 
+      {/* Pomodoro-mode settings */}
+      <div className={subheaderCls}>Pomodoro Mode</div>
       <label className={labelCls}>
         Work duration (min)
         <input type="number" min={1} max={720} step="any" value={settings.work_duration}
@@ -39,7 +42,6 @@ export function TimerSettings(): JSX.Element {
         <input type="number" min={0} max={99} value={settings.long_break_frequency}
                onChange={(e) => onNum('long_break_frequency', e.target.value)} className={inputCls} />
       </label>
-
       <label className={labelCls}>
         <input type="checkbox" checked={settings.auto_start_breaks}
                onChange={(e) => onBool('auto_start_breaks', e.target.checked)} />
@@ -51,19 +53,23 @@ export function TimerSettings(): JSX.Element {
         Auto Start Pomodoros
       </label>
 
+      {/* Freestyle-mode settings */}
+      <div className={subheaderCls}>Freestyle Mode</div>
       <label className={labelCls}>
-        Freestyle ratio (X:1)
+        Ratio (X work per 1 break)
         <input type="number" min={0.01} step={0.01} value={settings.freestyle_ratio}
                onChange={(e) => onNum('freestyle_ratio', e.target.value, true)} className={inputCls} />
       </label>
       <label className={labelCls}>
         <input type="checkbox" checked={settings.freestyle_accumulate}
                onChange={(e) => onBool('freestyle_accumulate', e.target.checked)} />
-        Freestyle: accumulate unspent break time across periods
+        Accumulate unspent break time across periods
       </label>
 
+      {/* All-mode settings */}
+      <div className={subheaderCls}>All Modes</div>
       <label className={labelCls}>
-        +/- adjust step (minutes)
+        +/- adjust step (min)
         <input type="number" min={1} max={60} value={settings.timer_adjust_step_minutes}
                onChange={(e) => onNum('timer_adjust_step_minutes', e.target.value)} className={inputCls} />
       </label>
