@@ -52,6 +52,7 @@ export interface Settings {
   theme: string;
   font: string;
   hour_format: string;
+  timer_adjust_step_minutes: number;
   updated_at: Date;
 }
 

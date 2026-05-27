@@ -22,6 +22,7 @@ export interface Settings {
   theme: string;
   font: string;
   hour_format: string;
+  timer_adjust_step_minutes: number;
 }
 
 export type PartialSettings = Partial<Settings>;
@@ -49,4 +50,5 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'bw-dark',
   font: 'Inter',
   hour_format: '12h',
+  timer_adjust_step_minutes: 5,
 };

@@ -55,6 +55,7 @@ describe.skipIf(SKIP)('runMigrations', () => {
       '002_create_sessions.sql',
       '003_create_tasks.sql',
       '007_create_settings.sql',
+      '010_add_timer_adjust_step.sql',
     ]);
   });
 });
