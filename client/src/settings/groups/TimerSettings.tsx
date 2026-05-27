@@ -61,6 +61,12 @@ export function TimerSettings(): JSX.Element {
                onChange={(e) => onBool('freestyle_accumulate', e.target.checked)} />
         Freestyle: accumulate unspent break time across periods
       </label>
+
+      <label className={labelCls}>
+        +/- adjust step (minutes)
+        <input type="number" min={1} max={60} value={settings.timer_adjust_step_minutes}
+               onChange={(e) => onNum('timer_adjust_step_minutes', e.target.value)} className={inputCls} />
+      </label>
     </section>
   );
 }

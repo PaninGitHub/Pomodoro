@@ -117,7 +117,7 @@ export function TimerArea(): JSX.Element {
       {showSetup && state.mode === 'timer'     && <DurationInput />}
       {showSetup && state.mode === 'freestyle' && <FreestyleSetup />}
       {showSetup && state.mode === 'pomodoro'  && <PomodoroSetup />}
-      {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} />}
+      {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} step={settings.timer_adjust_step_minutes} />}
       <Controls />
       {state.status === 'idle' && <ModeSelector />}
       <TodoList />

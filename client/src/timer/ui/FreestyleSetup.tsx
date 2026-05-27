@@ -45,7 +45,7 @@ export function FreestyleSetup(): JSX.Element | null {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm text-text-secondary">
-        Work duration (minutes — decimals OK, rounds to nearest second)
+        Work duration (minutes)
         <input
           type="number" step="any" min={0.0167} max={720}
           value={durationRaw}

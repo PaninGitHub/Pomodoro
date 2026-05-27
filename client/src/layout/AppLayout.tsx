@@ -11,8 +11,8 @@ export function AppLayout(): JSX.Element {
           Simplidoro
         </Link>
         <div className="flex items-center gap-4">
-          <Link to="/settings" className="text-text-secondary hover:text-text-primary text-lg" aria-label="Settings">
-            ⚙
+          <Link to="/settings" className="text-text-secondary hover:text-text-primary text-sm">
+            Settings
           </Link>
           <AuthWidget />
         </div>
