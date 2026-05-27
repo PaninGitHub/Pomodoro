@@ -1,5 +1,5 @@
 import { useSettings } from '../useSettings';
-import { FONTS, LS_FONT_KEY } from '../../fonts/fontConfig';
+import { FONTS } from '../../fonts/fontConfig';
 
 const labelCls = 'flex items-center gap-2 text-sm text-text-secondary';
 const selectCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary';
@@ -14,18 +14,9 @@ export function AppearanceSettings(): JSX.Element {
   function onFontChange(family: string) {
     const def = FONTS.find((f) => f.family === family);
     if (!def) return;
-    // Persist the font key to localStorage (used by useFont on next mount).
-    localStorage.setItem(LS_FONT_KEY, def.key);
-    // Apply immediately by updating the CSS variable.
-    document.documentElement.style.setProperty('--font-active', def.family);
-    // Re-inject the Google Fonts <link> for the new font.
-    document.head.querySelectorAll('link[data-simplidoro-font]').forEach((n) => n.remove());
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${def.googleParam}&display=swap`;
-    link.setAttribute('data-simplidoro-font', def.key);
-    document.head.appendChild(link);
-    // Persist to Settings (auth → DB, guest → cookie).
+    // Persist to Settings (auth → DB, guest → cookie). The useFont hook
+    // subscribes to settings.font and applies the CSS variable + Google
+    // Fonts <link> tag on change. Per Phase 2 audit: no localStorage.
     void updateSettings({ font: def.family });
   }
 
