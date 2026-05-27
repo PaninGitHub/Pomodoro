@@ -7,6 +7,7 @@ import { PeriodIndicator } from '../timer/ui/PeriodIndicator';
 import { CustomizableAdjustButton } from '../timer/ui/CustomizableAdjustButton';
 import { TwoTabBanner } from '../timer/ui/TwoTabBanner';
 import { TimerActionBar } from '../timer/ui/TimerActionBar';
+import { FreestylePromptOverlay } from '../timer/ui/FreestylePromptOverlay';
 import { useVisibilityChange } from '../timer/hooks/useVisibilityChange';
 import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
@@ -22,17 +23,40 @@ export function TimerArea(): JSX.Element {
   useVisibilityChange(() => { /* tick effect in TimerContext handles recompute */ });
   const { otherTabRunning } = useBroadcastChannel({ isRunning: state.status === 'running' });
 
-  // Period end detection: when remaining hits 0 while running, fire alarm + completion.
+  // Period end / target hit detection.
   useEffect(() => {
-    if (state.status === 'running' && remainingMs === 0) {
+    if (state.status !== 'running') return;
+
+    // --- Freestyle work: target-hit detection (C-09) ---
+    if (
+      state.mode === 'freestyle' &&
+      state.freestyle?.periodType === 'work' &&
+      state.freestyle.targetMs > 0 &&
+      !state.freestyle.targetReached &&
+      state.freestyle.prompt === 'none'
+    ) {
+      const elapsed = state.accumulatedMs + (Date.now() - state.startTimestamp);
+      if (elapsed >= state.freestyle.targetMs) {
+        void playAlarm({
+          volume: settings.alarm_volume,
+          repeats: settings.alarm_repeats,
+          fireNotification: settings.browser_notifications,
+        });
+        dispatch({ type: 'FREESTYLE_TARGET_HIT', now: Date.now() });
+        return;
+      }
+    }
+
+    // --- Countdown completion (Timer / Pomodoro / Freestyle break) ---
+    const isFreestyleWork =
+      state.mode === 'freestyle' && state.freestyle?.periodType === 'work';
+    if (!isFreestyleWork && remainingMs === 0) {
       void playAlarm({
         volume: settings.alarm_volume,
         repeats: settings.alarm_repeats,
         fireNotification: settings.browser_notifications,
       });
-      // C-06 predicate: in Pomodoro mode, if the user added tasks during the
-      // session AND all are complete, end the session instead of preparing
-      // the next break.
+      // C-06 predicate
       const justFinishedWork =
         state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work';
       const allTasksComplete = tasks.length > 0 && tasks.every((t) => t.is_complete);
@@ -43,9 +67,7 @@ export function TimerArea(): JSX.Element {
       }
     }
   }, [
-    state.status,
-    state.mode,
-    state.pomodoro,
+    state,
     remainingMs,
     dispatch,
     settings.alarm_volume,
@@ -108,6 +130,7 @@ export function TimerArea(): JSX.Element {
           opened from the gear icon in TimerActionBar. */}
       {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} step={settings.timer_adjust_step_minutes} />}
       <Controls />
+      <FreestylePromptOverlay />
       <TimerActionBar />
       <TodoList />
     </div>

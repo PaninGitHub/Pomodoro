@@ -25,7 +25,8 @@ function getSettingsHandler(sql: postgres.Sql) {
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
-               break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes
+               break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
+               freestyle_breaks_enabled
         FROM settings WHERE user_id = ${userId}
       `;
       if (rows.length === 0) {
@@ -68,7 +69,8 @@ function patchSettingsHandler(sql: postgres.Sql) {
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
-               break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes
+               break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
+               freestyle_breaks_enabled
         FROM settings WHERE user_id = ${userId}
       `;
       res.status(200).json({ settings: rows[0] });

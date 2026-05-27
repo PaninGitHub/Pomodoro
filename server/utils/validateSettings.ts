@@ -80,6 +80,7 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   font:                  (v) => enumOf(v, KNOWN_FONTS, 'font'),
   hour_format:           (v) => enumOf(v, KNOWN_HOUR_FORMATS, 'hour_format'),
   timer_adjust_step_minutes: (v) => intRange(v, 1, 60, 'timer_adjust_step_minutes'),
+  freestyle_breaks_enabled: (v) => boolField(v, 'freestyle_breaks_enabled'),
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_VALIDATORS) as (keyof PartialSettings)[];

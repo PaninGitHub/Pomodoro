@@ -14,6 +14,7 @@ Files are numbered by the table they create, mapped to Batch D §12 sub-sections
 | `008_create_custom_prompts.sql`   | custom_prompts   | §12.10  | Phase 3     |
 | `009_create_timer_sessions.sql`   | timer_sessions   | §12.7   | Phase 3     |
 | `010_add_timer_adjust_step.sql`   | (ALTER settings) | n/a     | Phase 2 (user-feedback revision) |
+| `011_add_freestyle_breaks_enabled.sql` | (ALTER settings) | n/a | Phase 2 (Freestyle redesign C-09) |
 
 **Numbers correspond to the table.** Build phases may run migrations out
 of strict numeric order (Phase 2 runs 003 + 007 but skips 004–006 which

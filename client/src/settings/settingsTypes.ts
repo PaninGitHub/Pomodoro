@@ -23,6 +23,7 @@ export interface Settings {
   font: string;
   hour_format: string;
   timer_adjust_step_minutes: number;
+  freestyle_breaks_enabled: boolean;
 }
 
 export type PartialSettings = Partial<Settings>;
@@ -51,4 +52,5 @@ export const DEFAULT_SETTINGS: Settings = {
   font: 'Inter',
   hour_format: '12h',
   timer_adjust_step_minutes: 5,
+  freestyle_breaks_enabled: true,
 };

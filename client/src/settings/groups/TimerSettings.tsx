@@ -65,6 +65,11 @@ export function TimerSettings(): JSX.Element {
                onChange={(e) => onBool('freestyle_accumulate', e.target.checked)} />
         Accumulate unspent break time across periods
       </label>
+      <label className={labelCls}>
+        <input type="checkbox" checked={settings.freestyle_breaks_enabled}
+               onChange={(e) => onBool('freestyle_breaks_enabled', e.target.checked)} />
+        Breaks enabled (when off, End Work ends the session immediately)
+      </label>
 
       {/* All-mode settings */}
       <div className={subheaderCls}>All Modes</div>

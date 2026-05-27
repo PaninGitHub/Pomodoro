@@ -143,71 +143,115 @@ describe('timerReducer — Pomodoro cycling', () => {
   });
 });
 
-describe('timerReducer — Freestyle cycling', () => {
+describe('timerReducer — Freestyle (C-09 stopwatch redesign)', () => {
   const freestyleIdle: TimerState = {
     ...initialTimerState,
     mode: 'freestyle',
-    totalMs: 5 * 60 * 1000, // 5 minute work duration set by user
+    totalMs: 5 * 60 * 1000, // 5 minute target set via click-to-edit
   };
 
-  it('START_FREESTYLE begins a work period and snapshots workDurationMs', () => {
-    const s = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW });
+  it('START_FREESTYLE begins a work period with the given target', () => {
+    const s = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 5 * 60 * 1000 });
     expect(s.status).toBe('running');
     expect(s.freestyle?.periodType).toBe('work');
-    expect(s.freestyle?.workDurationMs).toBe(5 * 60 * 1000);
+    expect(s.freestyle?.targetMs).toBe(5 * 60 * 1000);
+    expect(s.freestyle?.targetReached).toBe(false);
     expect(s.freestyle?.bankedMs).toBe(0);
+    expect(s.freestyle?.prompt).toBe('none');
   });
 
-  it('PERIOD_COMPLETE on work → break with earned time (ratio 5:1, 5min → 60s, rounded to 60s)', () => {
-    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW });
-    // Default ratio = 5, so 5 min work earns 1 min break.
-    const completed = timerReducer(inWork, { type: 'PERIOD_COMPLETE', now: NOW + 5 * 60 * 1000 });
-    expect(completed.freestyle?.periodType).toBe('break');
-    expect(completed.totalMs).toBe(60 * 1000);
-    expect(completed.status).toBe('running'); // auto-start break in Freestyle Phase 1
-    expect(completed.startTimestamp).toBe(NOW + 5 * 60 * 1000);
+  it('START_FREESTYLE with targetMs=0 (target disabled, pure stopwatch)', () => {
+    const s = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    expect(s.freestyle?.targetMs).toBe(0);
   });
 
-  it('PERIOD_COMPLETE on break → next work period, restored from workDurationMs', () => {
+  it('FREESTYLE_TARGET_HIT pauses + shows target_reached prompt', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 5 * 60 * 1000 });
+    const hit = timerReducer(inWork, { type: 'FREESTYLE_TARGET_HIT', now: NOW + 5 * 60 * 1000 });
+    expect(hit.status).toBe('paused');
+    expect(hit.freestyle?.prompt).toBe('target_reached');
+    expect(hit.accumulatedMs).toBe(5 * 60 * 1000);
+  });
+
+  it('FREESTYLE_CONTINUE resumes work, marks targetReached (no more alarms)', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 60_000 });
+    const hit = timerReducer(inWork, { type: 'FREESTYLE_TARGET_HIT', now: NOW + 60_000 });
+    const cont = timerReducer(hit, { type: 'FREESTYLE_CONTINUE', now: NOW + 60_500 });
+    expect(cont.status).toBe('running');
+    expect(cont.freestyle?.targetReached).toBe(true);
+    expect(cont.freestyle?.prompt).toBe('none');
+  });
+
+  it('FREESTYLE_RESET banks earned, resets elapsed, keeps target alarm armed', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 5 * 60 * 1000 });
+    const hit = timerReducer(inWork, { type: 'FREESTYLE_TARGET_HIT', now: NOW + 5 * 60 * 1000 });
+    const reset = timerReducer(hit, { type: 'FREESTYLE_RESET', now: NOW + 5 * 60 * 1000 });
+    // 5 min work / ratio 5 = 60s earned, banked
+    expect(reset.freestyle?.bankedMs).toBe(60_000);
+    expect(reset.accumulatedMs).toBe(0);
+    expect(reset.status).toBe('running');
+    expect(reset.freestyle?.targetReached).toBe(false);
+    expect(reset.freestyle?.prompt).toBe('none');
+  });
+
+  it('FREESTYLE_END_WORK (breaks enabled) → paused + break_choice prompt', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    const end = timerReducer(inWork, { type: 'FREESTYLE_END_WORK', now: NOW + 5 * 60 * 1000 });
+    expect(end.status).toBe('paused');
+    expect(end.freestyle?.prompt).toBe('break_choice');
+    expect(end.accumulatedMs).toBe(5 * 60 * 1000);
+  });
+
+  it('FREESTYLE_END_WORK with breaks DISABLED ends session immediately', () => {
+    const noBreaks: TimerState = { ...freestyleIdle, freestyleBreaksEnabled: false };
+    const inWork = timerReducer(noBreaks, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    const end = timerReducer(inWork, { type: 'FREESTYLE_END_WORK', now: NOW + 5 * 60 * 1000 });
+    expect(end.status).toBe('idle');
+    expect(end.freestyle).toBeNull();
+  });
+
+  it('FREESTYLE_START_BREAK transitions to break period with earned+banked total', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    const endWork = timerReducer(inWork, { type: 'FREESTYLE_END_WORK', now: NOW + 5 * 60 * 1000 });
+    const startBreak = timerReducer(endWork, { type: 'FREESTYLE_START_BREAK', now: NOW + 5 * 60 * 1000 + 100 });
+    // 5 min / ratio 5 = 60_000 ms break, no banked
+    expect(startBreak.status).toBe('running');
+    expect(startBreak.freestyle?.periodType).toBe('break');
+    expect(startBreak.totalMs).toBe(60_000);
+    expect(startBreak.freestyle?.prompt).toBe('none');
+  });
+
+  it('FREESTYLE_SKIP_BREAK banks earned (when accumulation ON), goes between periods', () => {
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    const endWork = timerReducer(inWork, { type: 'FREESTYLE_END_WORK', now: NOW + 5 * 60 * 1000 });
+    const skip = timerReducer(endWork, { type: 'FREESTYLE_SKIP_BREAK', now: NOW + 5 * 60 * 1000 + 100 });
+    expect(skip.status).toBe('completed');
+    expect(skip.freestyle?.periodType).toBe('work');
+    expect(skip.freestyle?.bankedMs).toBe(60_000);
+  });
+
+  it('FREESTYLE_SKIP_BREAK with accumulation OFF discards earned', () => {
+    const noAccum: TimerState = { ...freestyleIdle, freestyleAccumulation: false };
+    const inWork = timerReducer(noAccum, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
+    const endWork = timerReducer(inWork, { type: 'FREESTYLE_END_WORK', now: NOW + 5 * 60 * 1000 });
+    const skip = timerReducer(endWork, { type: 'FREESTYLE_SKIP_BREAK', now: NOW + 5 * 60 * 1000 + 100 });
+    expect(skip.freestyle?.bankedMs).toBe(0);
+  });
+
+  it('PERIOD_COMPLETE on break → between-periods (status=completed, periodType=work)', () => {
     const inBreak: TimerState = {
       ...freestyleIdle,
       status: 'running',
-      totalMs: 60 * 1000,
-      freestyle: { periodType: 'break', workDurationMs: 5 * 60 * 1000, bankedMs: 0 },
+      totalMs: 60_000,
+      freestyle: { periodType: 'break', targetMs: 0, targetReached: false, bankedMs: 0, prompt: 'none' },
     };
     const completed = timerReducer(inBreak, { type: 'PERIOD_COMPLETE', now: NOW });
+    expect(completed.status).toBe('completed');
     expect(completed.freestyle?.periodType).toBe('work');
-    expect(completed.totalMs).toBe(5 * 60 * 1000);
-    expect(completed.status).toBe('completed'); // user clicks Start for next work
-  });
-
-  it('Earned break rounds to nearest 15s (ratio 7:1, 1 min work = 8.57s rounded to 15s)', () => {
-    const oneMin: TimerState = {
-      ...freestyleIdle,
-      totalMs: 60 * 1000,
-      freestyleRatio: 7,
-    };
-    const inWork = timerReducer(oneMin, { type: 'START_FREESTYLE', now: NOW });
-    const completed = timerReducer(inWork, { type: 'PERIOD_COMPLETE', now: NOW + 60_000 });
-    // earned raw = 60000 / 7 = 8571.43 ms; rounded to nearest 15s = 15000 ms
-    expect(completed.totalMs).toBe(15_000);
-  });
-
-  it('Earned break of zero ends session (no break)', () => {
-    // Extreme ratio where rounded earned is 0
-    const extreme: TimerState = {
-      ...freestyleIdle,
-      totalMs: 1000, // 1 second work
-      freestyleRatio: 1000, // 1000:1
-    };
-    const inWork = timerReducer(extreme, { type: 'START_FREESTYLE', now: NOW });
-    const completed = timerReducer(inWork, { type: 'PERIOD_COMPLETE', now: NOW + 1000 });
-    expect(completed.status).toBe('idle');
-    expect(completed.freestyle).toBeNull();
   });
 
   it('ABANDON in Freestyle clears state', () => {
-    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW });
+    const inWork = timerReducer(freestyleIdle, { type: 'START_FREESTYLE', now: NOW, targetMs: 0 });
     const abandoned = timerReducer(inWork, { type: 'ABANDON' });
     expect(abandoned.status).toBe('idle');
     expect(abandoned.freestyle).toBeNull();
@@ -217,7 +261,7 @@ describe('timerReducer — Freestyle cycling', () => {
     const inBreak: TimerState = {
       ...freestyleIdle,
       status: 'running',
-      freestyle: { periodType: 'break', workDurationMs: 5 * 60 * 1000, bankedMs: 0 },
+      freestyle: { periodType: 'break', targetMs: 0, targetReached: false, bankedMs: 0, prompt: 'none' },
     };
     const ended = timerReducer(inBreak, { type: 'END_SESSION' });
     expect(ended.status).toBe('idle');

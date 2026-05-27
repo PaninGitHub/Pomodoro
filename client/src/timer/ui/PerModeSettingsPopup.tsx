@@ -18,7 +18,7 @@ interface Props {
  * / PomodoroSetup / FreestyleSetup that used to render below the timer.
  */
 export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
-  const { state } = useTimer();
+  const { state, dispatch } = useTimer();
   const { settings, updateSettings } = useSettings();
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -110,9 +110,18 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
               <input type="checkbox" checked={settings.freestyle_accumulate}
                      onChange={(e) => updateSettings({ freestyle_accumulate: e.target.checked })} />
             </label>
-            {/* TODO(phase-2-freestyle-redesign): add work-duration target + breaks-disabled toggle */}
+            <label className={labelCls}>
+              <span>Breaks enabled (off = end session at End Work)</span>
+              <input type="checkbox" checked={settings.freestyle_breaks_enabled}
+                     onChange={(e) => updateSettings({ freestyle_breaks_enabled: e.target.checked })} />
+            </label>
+            <label className={labelCls}>
+              <span>Work-duration target enabled (alarm at target)</span>
+              <input type="checkbox" checked={state.freestyleTargetEnabled}
+                     onChange={(e) => dispatch({ type: 'SET_FREESTYLE_TARGET_ENABLED', value: e.target.checked })} />
+            </label>
             <p className="text-xs text-text-secondary italic">
-              Freestyle redesign (stopwatch + optional work duration target) coming in the next revision.
+              Click the timer display when idle to set the target duration.
             </p>
           </>
         )}

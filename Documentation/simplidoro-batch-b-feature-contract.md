@@ -448,6 +448,42 @@ C-08: F-13 guest-task persistence revised. Guest tasks are stored in
       refresh" is hereby superseded by "persist in sessionStorage and are
       lost on tab close."
 
+C-09: F-03 Freestyle mode substantially redesigned (Phase 2 user-feedback
+      revision). Behaves as a stopwatch:
+
+      - Work period counts UP from 00:00 (not down).
+      - User can optionally set a "work duration target." When elapsed
+        reaches the target, the alarm fires and the user is prompted with
+        three choices:
+          1. Continue working — timer keeps counting up indefinitely.
+             No further target alarms. Capped only by the 12-hour
+             per-period limit (F-32).
+          2. End work — transitions to break-choice prompt
+             (see below).
+          3. Reset — banks earned break time so far, resets elapsed to
+             00:00, continues work period. Note: target alarm CAN fire
+             again on subsequent target hits in the same session.
+      - If the target is disabled, the timer counts up to the 12-hour cap
+        or until the user clicks "End Work."
+      - After "End Work" (whether triggered by user button, target+End,
+        or 12-hour cap), the user is prompted with three choices:
+          1. Start Break — counts down from earned + banked break time
+             (with break_enabled=true).
+          2. Skip Break — banks the earned time, transitions to
+             between-periods state (waiting for next Start Work).
+          3. End Session — clears the freestyle session entirely.
+      - When settings.freestyle_breaks_enabled = false, "End Work" skips
+        the break-choice prompt and ends the session immediately
+        (effectively a stopwatch with no breaks).
+      - Earned break time is calculated per-second:
+            earned_break_seconds = elapsed_work_seconds / ratio
+        The previous F-03 specification of "rounded to nearest 15 seconds"
+        is hereby VOID. Per-second precision applies to both the displayed
+        value and the break timer.
+      - Accumulation toggle behavior preserved: bankedMs from prior
+        periods (and from the new Reset action) is added to the next
+        break's totalMs when accumulation is ON.
+
 ---
 
 ## SECTION 6 (CONTINUED): DETAILED FEATURE SPECIFICATIONS

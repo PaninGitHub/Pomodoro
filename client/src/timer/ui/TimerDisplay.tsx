@@ -6,18 +6,37 @@ import { useSettings } from '../../settings/useSettings';
 /**
  * Editable timer display.
  *
- * Per user feedback (Phase 2 revision):
- * - Click on the display when NOT running → inline edit.
- * - Persistence rule:
- *     - Truly idle (status='idle' AND no Pomodoro/Freestyle session started yet):
- *       update the persistent setting (work_duration for Pomodoro; per-session
- *       totalMs for Timer/Freestyle since neither has a "default" setting).
- *     - Otherwise (paused, completed-between-periods, etc.): per-session
- *       totalMs update only (does not persist).
+ * Display semantics:
+ *  - Timer / Pomodoro: count DOWN (remaining time).
+ *  - Freestyle WORK: count UP (elapsed time) — stopwatch behavior per C-09.
+ *  - Freestyle BREAK: count DOWN (remaining break time).
+ *
+ * Click-to-edit (when not running):
+ *  - Truly idle (no session started): updates work_duration setting for
+ *    Pomodoro; per-session totalMs for Timer/Freestyle.
+ *  - Otherwise (paused or completed): per-session totalMs only.
  */
 export function TimerDisplay(): JSX.Element {
   const { state, dispatch, remainingMs } = useTimer();
   const { settings, updateSettings } = useSettings();
+
+  const isFreestyleWork =
+    state.mode === 'freestyle' &&
+    state.freestyle?.periodType === 'work';
+
+  // For Freestyle work, compute the "elapsed" value (count up).
+  const elapsedMs =
+    isFreestyleWork
+      ? (state.status === 'running'
+          ? state.accumulatedMs + (Date.now() - state.startTimestamp)
+          : state.accumulatedMs)
+      : 0;
+
+  // We need to refresh on tick when in Freestyle work (since elapsedMs uses Date.now()).
+  // useState forces re-render via the parent TimerContext tick. The remainingMs
+  // path already triggers re-renders on tick. To stay simple, derive a display
+  // value: countdown for non-Freestyle-work, count-up otherwise.
+  const displayMs = isFreestyleWork ? elapsedMs : remainingMs;
 
   const editable = state.status !== 'running';
   const isTrulyIdle =
@@ -31,7 +50,7 @@ export function TimerDisplay(): JSX.Element {
 
   function beginEdit() {
     if (!editable) return;
-    // For Pomodoro idle, edit work_duration (in minutes). Otherwise edit totalMs.
+    if (isFreestyleWork) return; // can't edit elapsed-time during freestyle work
     const currentMin =
       state.mode === 'pomodoro' && isTrulyIdle
         ? settings.work_duration
@@ -43,12 +62,10 @@ export function TimerDisplay(): JSX.Element {
   function commit() {
     setEditing(false);
     const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0 || n > 720) return; // silently bail on invalid
+    if (!Number.isFinite(n) || n <= 0 || n > 720) return;
     if (state.mode === 'pomodoro' && isTrulyIdle) {
-      // Truly idle Pomodoro → update the persistent setting.
       void updateSettings({ work_duration: Math.round(n) });
     } else {
-      // Timer / Freestyle, OR Pomodoro mid-session → per-session totalMs.
       dispatch({ type: 'SET_DURATION', minutes: n });
     }
   }
@@ -79,21 +96,33 @@ export function TimerDisplay(): JSX.Element {
     );
   }
 
+  // Title hint: depends on mode + state
+  const title = !editable
+    ? undefined
+    : isFreestyleWork
+    ? undefined
+    : 'Click to edit duration';
+
   return (
     <div
-      role={editable ? 'button' : undefined}
-      tabIndex={editable ? 0 : -1}
+      role={editable && !isFreestyleWork ? 'button' : undefined}
+      tabIndex={editable && !isFreestyleWork ? 0 : -1}
       onClick={beginEdit}
-      onKeyDown={(e) => { if (editable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); beginEdit(); } }}
+      onKeyDown={(e) => {
+        if (editable && !isFreestyleWork && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          beginEdit();
+        }
+      }}
       className={[
         'text-timer text-7xl md:text-9xl font-mono tabular-nums select-none',
-        editable ? 'cursor-text hover:opacity-80' : '',
+        editable && !isFreestyleWork ? 'cursor-text hover:opacity-80' : '',
       ].join(' ')}
       aria-live="polite"
       aria-atomic="true"
-      title={editable ? 'Click to edit duration' : undefined}
+      title={title}
     >
-      {formatTime(remainingMs)}
+      {formatTime(displayMs)}
     </div>
   );
 }
