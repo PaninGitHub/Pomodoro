@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useTimer } from '../timer/state/useTimer';
 import { TimerDisplay } from '../timer/ui/TimerDisplay';
-import { ModeSelector } from '../timer/ui/ModeSelector';
+import { ModeTabs } from '../timer/ui/ModeTabs';
 import { Controls } from '../timer/ui/Controls';
 import { DurationInput } from '../timer/ui/DurationInput';
 import { FreestyleSetup } from '../timer/ui/FreestyleSetup';
@@ -112,6 +112,7 @@ export function TimerArea(): JSX.Element {
   return (
     <div className="w-full flex flex-col items-center gap-6 p-4 md:p-8">
       <TwoTabBanner visible={otherTabRunning && state.status === 'running'} />
+      <ModeTabs />
       <PeriodIndicator />
       <TimerDisplay />
       {showSetup && state.mode === 'timer'     && <DurationInput />}
@@ -119,7 +120,6 @@ export function TimerArea(): JSX.Element {
       {showSetup && state.mode === 'pomodoro'  && <PomodoroSetup />}
       {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} step={settings.timer_adjust_step_minutes} />}
       <Controls />
-      {state.status === 'idle' && <ModeSelector />}
       <TodoList />
     </div>
   );
