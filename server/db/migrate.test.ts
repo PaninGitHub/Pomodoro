@@ -48,6 +48,13 @@ describe.skipIf(SKIP)('runMigrations', () => {
     await runMigrations(sql, 'db/migrations');
     const rows = await sql`SELECT filename FROM _migrations ORDER BY filename`;
     const files = rows.map((r) => r.filename);
-    expect(files).toEqual(['001_create_users.sql', '002_create_sessions.sql']);
+    // Phase 0 had only 001 + 002. Phase 2 added 003 + 007. Future phases
+    // will append more; just assert the current full set in filename order.
+    expect(files).toEqual([
+      '001_create_users.sql',
+      '002_create_sessions.sql',
+      '003_create_tasks.sql',
+      '007_create_settings.sql',
+    ]);
   });
 });
