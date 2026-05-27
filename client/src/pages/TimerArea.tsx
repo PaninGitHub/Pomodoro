@@ -13,6 +13,7 @@ import { useVisibilityChange } from '../timer/hooks/useVisibilityChange';
 import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
 import { playAlarm } from '../audio/playAlarm';
+import { TodoList } from '../tasks/TodoList';
 
 // TODO(phase-2): pull volume + repeats from settings.
 const ALARM_VOLUME = 80;
@@ -94,6 +95,7 @@ export function TimerArea(): JSX.Element {
       {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} />}
       <Controls />
       {state.status === 'idle' && <ModeSelector />}
+      <TodoList />
     </div>
   );
 }
