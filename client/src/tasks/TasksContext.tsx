@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useAuth } from '../auth/useAuth';
 
 export interface ClientTask {
@@ -56,6 +56,11 @@ function randomGuestId(): string {
 export function TasksProvider({ children }: { children: ReactNode }): JSX.Element {
   const { state: authState } = useAuth();
   const [tasks, setTasks] = useState<ClientTask[]>([]);
+  // Gate the guest-write effect: don't overwrite sessionStorage with the initial
+  // empty array. Only mirror writes that happen AFTER the initial load completes.
+  // Without this, mount runs (auth='loading' → write effect fires → writes []),
+  // clobbering any pre-existing guest tasks before the read effect gets a chance.
+  const hasLoadedRef = useRef(false);
 
   const isAuth = authState.kind === 'signed_in';
 
@@ -74,15 +79,20 @@ export function TasksProvider({ children }: { children: ReactNode }): JSX.Elemen
           }
         } catch {
           setTasks([]);
+        } finally {
+          hasLoadedRef.current = true;
         }
       })();
     } else {
       setTasks(readGuestTasks());
+      hasLoadedRef.current = true;
     }
   }, [authState.kind, authState.kind === 'signed_in' ? authState.user.id : null]);
 
-  // Mirror to sessionStorage for guests.
+  // Mirror to sessionStorage for guests — but only after the initial load runs,
+  // so we don't clobber prior sessionStorage with the initial empty React state.
   useEffect(() => {
+    if (!hasLoadedRef.current) return;
     if (!isAuth) writeGuestTasks(tasks);
   }, [tasks, isAuth]);
 
