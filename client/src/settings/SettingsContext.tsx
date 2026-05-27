@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useAuth } from '../auth/useAuth';
 import { readSettingsCookie, writeSettingsCookie } from '../utils/cookie';
+import { notificationPermissionStatus } from '../utils/notification';
 import { DEFAULT_SETTINGS, type Settings, type PartialSettings } from './settingsTypes';
 
 interface SettingsContextValue {
@@ -89,6 +90,16 @@ export function SettingsProvider({ children }: { children: ReactNode }): JSX.Ele
     const merged = { ...settings, ...patch };
     writeSettingsCookie(merged);
   }, [authState, settings]);
+
+  // Notification permission boot sync: if our setting says ON but the browser
+  // permission is revoked (e.g. user disabled it in browser settings after
+  // granting), silently flip our setting to OFF on next render.
+  useEffect(() => {
+    if (settings.browser_notifications && notificationPermissionStatus() !== 'granted') {
+      void updateSettings({ browser_notifications: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   return (
     <SettingsContext.Provider value={{ settings, updateSettings }}>

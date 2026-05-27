@@ -14,13 +14,13 @@ import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
 import { playAlarm } from '../audio/playAlarm';
 import { TodoList } from '../tasks/TodoList';
-
-// TODO(phase-2): pull volume + repeats from settings.
-const ALARM_VOLUME = 80;
-const ALARM_REPEATS = 1;
+import { useSettings } from '../settings/useSettings';
+import { useTasks } from '../tasks/useTasks';
 
 export function TimerArea(): JSX.Element {
   const { state, dispatch, remainingMs } = useTimer();
+  const { settings } = useSettings();
+  const { tasks } = useTasks();
   useVisibilityChange(() => { /* tick effect in TimerContext handles recompute */ });
   const { otherTabRunning } = useBroadcastChannel({ isRunning: state.status === 'running' });
 
@@ -29,10 +29,35 @@ export function TimerArea(): JSX.Element {
   // so this effect doesn't need to know about cycling.
   useEffect(() => {
     if (state.status === 'running' && remainingMs === 0) {
-      void playAlarm({ volume: ALARM_VOLUME, repeats: ALARM_REPEATS });
-      dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
+      void playAlarm({
+        volume: settings.alarm_volume,
+        repeats: settings.alarm_repeats,
+        fireNotification: settings.browser_notifications,
+      });
+      // C-06 predicate: in Pomodoro mode, if the user added tasks during the
+      // session AND all are complete, end the session instead of preparing
+      // the next break. Phase 1 had no to-do list so this was a no-op; Phase 2
+      // wires the predicate using TasksContext.
+      const justFinishedWork =
+        state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work';
+      const allTasksComplete = tasks.length > 0 && tasks.every((t) => t.is_complete);
+      if (justFinishedWork && allTasksComplete) {
+        dispatch({ type: 'END_SESSION' });
+      } else {
+        dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
+      }
     }
-  }, [state.status, remainingMs, dispatch]);
+  }, [
+    state.status,
+    state.mode,
+    state.pomodoro,
+    remainingMs,
+    dispatch,
+    settings.alarm_volume,
+    settings.alarm_repeats,
+    settings.browser_notifications,
+    tasks,
+  ]);
 
   // 12-hour per-period cap (client-side enforcement per F-32 / C-07).
   useEffect(() => {
