@@ -14,3 +14,46 @@ export interface User {
 }
 
 export type PublicUser = Pick<User, 'id' | 'email' | 'display_name' | 'avatar_url'>;
+
+export interface Task {
+  id: string;
+  user_id: string;
+  name: string;
+  time_estimate: number;
+  is_complete: boolean;
+  sort_order: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type PublicTask = Pick<Task, 'id' | 'name' | 'time_estimate' | 'is_complete' | 'sort_order'>;
+
+export interface Settings {
+  id: string;
+  user_id: string;
+  work_duration: number;
+  short_break_duration: number;
+  long_break_duration: number;
+  long_break_frequency: number;
+  auto_start_breaks: boolean;
+  auto_start_pomodoros: boolean;
+  freestyle_ratio: number;
+  freestyle_accumulate: boolean;
+  alarm_sound: string;
+  alarm_volume: number;
+  alarm_repeats: number;
+  alarm_custom_url: string | null;
+  browser_notifications: boolean;
+  reflection_enabled: boolean;
+  music_autoplay: boolean;
+  music_volume: number;
+  last_sound_selected: string;
+  break_activity_limit: number;
+  theme: string;
+  font: string;
+  hour_format: string;
+  updated_at: Date;
+}
+
+export type PublicSettings = Omit<Settings, 'id' | 'user_id' | 'updated_at'>;
+export type PartialSettings = Partial<PublicSettings>;
