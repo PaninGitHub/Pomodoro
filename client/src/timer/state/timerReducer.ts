@@ -24,21 +24,22 @@ export interface TimerState {
   accumulatedMs: number;   // snapshot of elapsed from prior runs
   pomodoro: PomodoroState | null;
   freestyle: FreestyleState | null;
-  // TODO(phase-2): move to settings DB/cookie.
+  // Pomodoro durations + cycle config — synced from Settings via TimerProvider effect.
+  // Phase 2 replaces the hardcoded POMODORO_DEFAULTS reads with these state fields.
+  pomodoroWorkMs: number;
+  pomodoroShortBreakMs: number;
+  pomodoroLongBreakMs: number;
+  pomodoroLongBreakEvery: number;
+  // Auto-start preferences — synced from Settings via TimerProvider effect.
   autoStartBreaks: boolean;
   autoStartPomodoros: boolean;
-  // TODO(phase-2): move to settings DB/cookie. Per F-30, freestyle defaults are ratio 5:1 and accumulation ON.
+  // Freestyle preferences — synced from Settings via TimerProvider effect.
   freestyleRatio: number;
   freestyleAccumulation: boolean;
 }
 
-// =====================================================================
-// TODO(phase-2): replace ALL of these literal defaults with values from
-// the Settings context once the settings page ships. Per Batch B
-// §F-02 / §F-30, defaults are 25/5/20 minutes and long break every
-// 4 work periods. longBreakEvery=4 is the per-spec default but Phase 2
-// must surface it as a configurable setting.
-// =====================================================================
+// Spec defaults per Batch B §F-02 / §F-30 (25 / 5 / 20 min, every 4).
+// Kept as the initial-state seed; subsequent values come from SettingsContext.
 export const POMODORO_DEFAULTS = {
   workMinutes: 25,
   shortBreakMinutes: 5,
@@ -46,7 +47,6 @@ export const POMODORO_DEFAULTS = {
   longBreakEvery: 4,
 } as const;
 
-// TODO(phase-2): replace with settings.freestyle_ratio + settings.freestyle_accumulate.
 const FREESTYLE_DEFAULT_RATIO = 5;
 const FREESTYLE_DEFAULT_ACCUMULATION = true;
 
@@ -60,6 +60,10 @@ export const initialTimerState: TimerState = {
   accumulatedMs: 0,
   pomodoro: null,
   freestyle: null,
+  pomodoroWorkMs: POMODORO_DEFAULTS.workMinutes * 60 * 1000,
+  pomodoroShortBreakMs: POMODORO_DEFAULTS.shortBreakMinutes * 60 * 1000,
+  pomodoroLongBreakMs: POMODORO_DEFAULTS.longBreakMinutes * 60 * 1000,
+  pomodoroLongBreakEvery: POMODORO_DEFAULTS.longBreakEvery,
   autoStartBreaks: false,
   autoStartPomodoros: false,
   freestyleRatio: FREESTYLE_DEFAULT_RATIO,
@@ -74,6 +78,7 @@ export type TimerAction =
   | { type: 'SET_AUTO_START_POMODOROS'; value: boolean }
   | { type: 'SET_FREESTYLE_RATIO'; value: number }
   | { type: 'SET_FREESTYLE_ACCUMULATION'; value: boolean }
+  | { type: 'SET_POMODORO_DURATIONS'; workMs: number; shortBreakMs: number; longBreakMs: number; longBreakEvery: number }
   | { type: 'START'; now: number }
   | { type: 'START_POMODORO'; now: number }
   | { type: 'START_FREESTYLE'; now: number }
@@ -83,27 +88,25 @@ export type TimerAction =
   | { type: 'END_SESSION' }
   | { type: 'PERIOD_COMPLETE'; now: number };
 
-function nextPomodoroPeriod(current: PomodoroState): {
+function nextPomodoroPeriod(current: PomodoroState, state: TimerState): {
   periodType: PomodoroPeriodType;
   workCount: number;
   totalMs: number;
 } {
   if (current.periodType === 'work') {
     const newWorkCount = current.workCount + 1;
-    // TODO(phase-2): replace POMODORO_DEFAULTS.longBreakEvery with the
-    // long_break_frequency setting from settings.user_id.
-    const isLong = newWorkCount % POMODORO_DEFAULTS.longBreakEvery === 0;
+    const isLong = state.pomodoroLongBreakEvery > 0 && newWorkCount % state.pomodoroLongBreakEvery === 0;
     return {
       periodType: isLong ? 'long_break' : 'short_break',
       workCount: newWorkCount,
-      totalMs: (isLong ? POMODORO_DEFAULTS.longBreakMinutes : POMODORO_DEFAULTS.shortBreakMinutes) * 60 * 1000,
+      totalMs: isLong ? state.pomodoroLongBreakMs : state.pomodoroShortBreakMs,
     };
   }
   // After any break, return to work. workCount stays the same.
   return {
     periodType: 'work',
     workCount: current.workCount,
-    totalMs: POMODORO_DEFAULTS.workMinutes * 60 * 1000,
+    totalMs: state.pomodoroWorkMs,
   };
 }
 
@@ -130,6 +133,14 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       return { ...state, autoStartBreaks: action.value };
     case 'SET_AUTO_START_POMODOROS':
       return { ...state, autoStartPomodoros: action.value };
+    case 'SET_POMODORO_DURATIONS':
+      return {
+        ...state,
+        pomodoroWorkMs: action.workMs,
+        pomodoroShortBreakMs: action.shortBreakMs,
+        pomodoroLongBreakMs: action.longBreakMs,
+        pomodoroLongBreakEvery: action.longBreakEvery,
+      };
     case 'SET_FREESTYLE_RATIO':
       if (action.value <= 0) return state;
       // Enforce max 2 decimal places per Batch B C-04
@@ -147,7 +158,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         status: 'running',
         startTimestamp: action.now,
         accumulatedMs: 0,
-        totalMs: POMODORO_DEFAULTS.workMinutes * 60 * 1000,
+        totalMs: state.pomodoroWorkMs,
         pomodoro: { periodType: 'work', workCount: 0 },
       };
     case 'START_FREESTYLE':
@@ -195,7 +206,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
 
       // --- Pomodoro cycling ---
       if (state.mode === 'pomodoro' && state.pomodoro) {
-        const next = nextPomodoroPeriod(state.pomodoro);
+        const next = nextPomodoroPeriod(state.pomodoro, state);
         return {
           ...base,
           status: 'completed',

@@ -1,6 +1,7 @@
 import { createContext, useReducer, useEffect, useState, type ReactNode } from 'react';
 import { timerReducer, initialTimerState, type TimerState, type TimerAction } from './timerReducer';
 import { computeRemaining } from '../math/timerMath';
+import { useSettings } from '../../settings/useSettings';
 
 interface TimerContextValue {
   state: TimerState;
@@ -15,6 +16,7 @@ const TICK_INTERVAL_MS = 250;
 export function TimerProvider({ children }: { children: ReactNode }): JSX.Element {
   const [state, dispatch] = useReducer(timerReducer, initialTimerState);
   const [now, setNow] = useState<number>(Date.now());
+  const { settings } = useSettings();
 
   useEffect(() => {
     if (state.status !== 'running') return;
@@ -26,6 +28,35 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
     const interval = setInterval(() => setNow(Date.now()), TICK_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [state.status, state.startTimestamp]);
+
+  // Sync Settings → TimerState. Whenever Settings changes (login, manual edit,
+  // cookie load), push the relevant fields into the reducer so future
+  // START_POMODORO / START_FREESTYLE / PERIOD_COMPLETE actions use the
+  // user's configured values instead of literal defaults.
+  useEffect(() => {
+    if (state.status !== 'idle') return; // don't disturb running sessions
+    dispatch({
+      type: 'SET_POMODORO_DURATIONS',
+      workMs: settings.work_duration * 60 * 1000,
+      shortBreakMs: settings.short_break_duration * 60 * 1000,
+      longBreakMs: settings.long_break_duration * 60 * 1000,
+      longBreakEvery: settings.long_break_frequency,
+    });
+    dispatch({ type: 'SET_AUTO_START_BREAKS', value: settings.auto_start_breaks });
+    dispatch({ type: 'SET_AUTO_START_POMODOROS', value: settings.auto_start_pomodoros });
+    dispatch({ type: 'SET_FREESTYLE_RATIO', value: settings.freestyle_ratio });
+    dispatch({ type: 'SET_FREESTYLE_ACCUMULATION', value: settings.freestyle_accumulate });
+  }, [
+    state.status,
+    settings.work_duration,
+    settings.short_break_duration,
+    settings.long_break_duration,
+    settings.long_break_frequency,
+    settings.auto_start_breaks,
+    settings.auto_start_pomodoros,
+    settings.freestyle_ratio,
+    settings.freestyle_accumulate,
+  ]);
 
   const remainingMs = state.status === 'running'
     ? computeRemaining(state, now)
