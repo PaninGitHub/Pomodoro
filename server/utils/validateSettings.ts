@@ -93,6 +93,7 @@ export function validatePartialSettings(body: unknown): Result<PartialSettings> 
   for (const field of KNOWN_FIELDS) {
     if (!(field in b)) continue;
     const validator = FIELD_VALIDATORS[field];
+    if (!validator) continue; // unreachable: KNOWN_FIELDS comes from the map keys
     const r = validator(b[field]);
     if (!r.ok) return r;
     (out as Record<string, unknown>)[field] = r.value;
