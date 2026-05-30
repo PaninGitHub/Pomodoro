@@ -334,6 +334,12 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
     case 'END_SESSION_WITH_REFLECTION': {
       // User clicked End Session early AND reflection_enabled — go
       // straight into the session reflection variant.
+      //
+      // Intentional: we keep pomodoro / freestyle / currentSessionId /
+      // startTimestamp / accumulatedMs from the running state so the
+      // session-reflection modal can read state.pomodoro.workCount and
+      // friends for its summary. They get cleared on the subsequent
+      // REFLECTION_SUBMITTED (session branch below).
       return {
         ...state,
         status: 'reflecting',
@@ -345,6 +351,12 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
 
     case 'REFLECTION_SUBMITTED':
     case 'REFLECTION_SKIPPED': {
+      // Defensive no-op: dispatched while reflectionType is already
+      // cleared (e.g. modal double-submit after the first dispatch
+      // already chained or returned to idle). Without this guard the
+      // per-period branch below would clobber `status` to 'completed'.
+      if (state.reflectionType === null) return state;
+
       // Per-period reflection finishing on a session-end -> chain into
       // the session reflection.
       if (state.reflectionType === 'per_period' && state.nextPeriodKindAfterReflection === 'session_end') {
@@ -405,7 +417,10 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
 
     case 'SET_PERIOD_TASKS_SNAPSHOT': {
       // Replace the per-period snapshot and accumulate into the session-
-      // wide snapshot (deduplicated by id).
+      // wide snapshot (deduplicated by id). Map.set overwrites on duplicate
+      // ids so the latest snapshot's `name` wins — intentional: the F-08
+      // session reflection should show the task's current name after a
+      // mid-session rename, not a stale start-of-period name.
       const existingSession = state.sessionTasksSnapshot ?? [];
       const sessionMap = new Map<string, PeriodTaskSnapshot>();
       for (const t of existingSession) sessionMap.set(t.id, t);

@@ -607,4 +607,58 @@ describe('timerReducer — reflection status (Phase 3 Rollout 3)', () => {
     expect(s.currentPeriodTasksSnapshot).toBeNull();
     expect(s.sessionTasksSnapshot).toBeNull();
   });
+
+  it('REFLECTION_SUBMITTED is a no-op when reflectionType is null (defensive — double-submit)', () => {
+    // Scenario: modal submits, status flips to 'completed', then a
+    // duplicate dispatch arrives (React 18 StrictMode, fast double-click).
+    const afterFirstSubmit: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'completed',
+      reflectionType: null,
+      pomodoro: { periodType: 'short_break', workCount: 1 },
+    };
+    const s = timerReducer(afterFirstSubmit, { type: 'REFLECTION_SUBMITTED' });
+    expect(s).toBe(afterFirstSubmit); // referential equality — no state change
+  });
+
+  it('REFLECTION_SKIPPED is a no-op when reflectionType is null', () => {
+    const afterFirstSubmit: TimerState = {
+      ...initialTimerState,
+      status: 'idle',
+      reflectionType: null,
+    };
+    const s = timerReducer(afterFirstSubmit, { type: 'REFLECTION_SKIPPED' });
+    expect(s).toBe(afterFirstSubmit);
+  });
+
+  it('WORK_PERIOD_DONE is idempotent on re-entry (StrictMode double-fire)', () => {
+    // Scenario: the period-end effect dispatches WORK_PERIOD_DONE twice
+    // (React 18 StrictMode dev mode). The second dispatch lands while
+    // status is already 'reflecting'. Should not corrupt state.
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'running',
+      pomodoro: { periodType: 'work', workCount: 2 },
+    };
+    const once = timerReducer(live, { type: 'WORK_PERIOD_DONE', now: 100, nextPeriodKind: 'short_break' });
+    const twice = timerReducer(once, { type: 'WORK_PERIOD_DONE', now: 200, nextPeriodKind: 'short_break' });
+    expect(twice.status).toBe('reflecting');
+    expect(twice.reflectionType).toBe('per_period');
+    expect(twice.reflectionPeriodNumber).toBe(3); // pomodoro.workCount stayed at 2; +1
+    expect(twice.nextPeriodKindAfterReflection).toBe('short_break');
+  });
+
+  it('SET_PERIOD_TASKS_SNAPSHOT picks up rename (latest name wins on duplicate id)', () => {
+    const s1 = timerReducer(initialTimerState, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'Old name' }],
+    });
+    const s2 = timerReducer(s1, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'New name' }],
+    });
+    expect(s2.sessionTasksSnapshot).toEqual([{ id: 'a', name: 'New name' }]);
+  });
 });
