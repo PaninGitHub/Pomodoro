@@ -61,3 +61,23 @@ export interface Settings {
 
 export type PublicSettings = Omit<Settings, 'id' | 'user_id' | 'updated_at'>;
 export type PartialSettings = Partial<PublicSettings>;
+
+export type TimerSessionMode = 'timer' | 'pomodoro' | 'freestyle';
+
+export interface TimerSession {
+  id: string;
+  user_id: string;
+  mode: TimerSessionMode;
+  started_at: Date;
+  ended_at: Date | null;
+  ended_early: boolean;
+  total_work_mins: number | null;
+  periods_completed: number;
+  is_interrupted: boolean;
+  interrupted_at: Date | null;
+}
+
+export type PublicSession = Pick<
+  TimerSession,
+  'id' | 'mode' | 'started_at' | 'ended_at' | 'ended_early' | 'total_work_mins' | 'periods_completed'
+>;
