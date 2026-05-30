@@ -42,7 +42,10 @@ export function TimerDisplay(): JSX.Element {
     state.status === 'idle' && state.pomodoro === null && state.freestyle === null;
 
   // Decompose displayMs into hh:mm:ss; show hours only when present.
-  const totalSeconds = Math.ceil(Math.max(0, displayMs) / 1000);
+  // Per B2: count-up uses floor (Freestyle work); everything else uses ceil.
+  const totalSeconds = isFreestyleWork
+    ? Math.floor(Math.max(0, displayMs) / 1000)
+    : Math.ceil(Math.max(0, displayMs) / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
