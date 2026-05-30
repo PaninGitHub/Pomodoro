@@ -26,11 +26,12 @@ export interface Settings {
   freestyle_breaks_enabled: boolean;
   show_avatar: boolean;
   freestyle_target_minutes: number;
+  show_hours: boolean;
 }
 
 export type PartialSettings = Partial<Settings>;
 
-// Defaults must match migrations 007 + 010 + 011 + 012 exactly.
+// Defaults must match migrations 007 + 010 + 011 + 012 + 013 exactly.
 export const DEFAULT_SETTINGS: Settings = {
   work_duration: 25,
   short_break_duration: 5,
@@ -57,4 +58,5 @@ export const DEFAULT_SETTINGS: Settings = {
   freestyle_breaks_enabled: true,
   show_avatar: true,
   freestyle_target_minutes: 25,
+  show_hours: true,
 };
