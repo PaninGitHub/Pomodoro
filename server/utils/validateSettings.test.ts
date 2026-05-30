@@ -77,4 +77,15 @@ describe('validatePartialSettings', () => {
     expect(validatePartialSettings({ alarm_sound: 'bell' }).ok).toBe(true);
     expect(validatePartialSettings({ alarm_sound: 'kazoo' }).ok).toBe(false);
   });
+  it('validates show_avatar is a boolean', () => {
+    expect(validatePartialSettings({ show_avatar: true }).ok).toBe(true);
+    expect(validatePartialSettings({ show_avatar: false }).ok).toBe(true);
+    expect(validatePartialSettings({ show_avatar: 'yes' }).ok).toBe(false);
+  });
+  it('validates freestyle_target_minutes range (1-720)', () => {
+    expect(validatePartialSettings({ freestyle_target_minutes: 0 }).ok).toBe(false);
+    expect(validatePartialSettings({ freestyle_target_minutes: 721 }).ok).toBe(false);
+    expect(validatePartialSettings({ freestyle_target_minutes: 1 }).ok).toBe(true);
+    expect(validatePartialSettings({ freestyle_target_minutes: 720 }).ok).toBe(true);
+  });
 });

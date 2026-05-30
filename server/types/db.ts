@@ -54,6 +54,8 @@ export interface Settings {
   hour_format: string;
   timer_adjust_step_minutes: number;
   freestyle_breaks_enabled: boolean;
+  show_avatar: boolean;
+  freestyle_target_minutes: number;
   updated_at: Date;
 }
 
