@@ -3,6 +3,7 @@ import { useReflectionsList } from './useReflectionsList';
 import { useReflectionPrompts } from './useReflectionPrompts';
 import { useSettings } from '../settings/useSettings';
 import { groupByDay, groupByWeek, groupByMonth } from './grouping';
+import { ReflectionEditModal } from './ReflectionEditModal';
 import {
   PER_PERIOD_KEYS,
   SESSION_KEYS,
@@ -19,6 +20,7 @@ export function ReflectionLogPage(): JSX.Element {
   const { settings } = useSettings();
   const [filters, setFilters] = useState<ReflectionFilters>({});
   const [view, setView] = useState<View>('day');
+  const [editing, setEditing] = useState<ReflectionRow | null>(null);
   const { reflections, loading, error, refetch } = useReflectionsList(filters);
 
   const groups = useMemo(() => {
@@ -90,10 +92,18 @@ export function ReflectionLogPage(): JSX.Element {
             {g.label}
           </h3>
           {g.items.map((r) => (
-            <ReflectionCard key={r.id} reflection={r} />
+            <ReflectionCard key={r.id} reflection={r} onEdit={() => setEditing(r)} />
           ))}
         </section>
       ))}
+
+      {editing && (
+        <ReflectionEditModal
+          reflection={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => void refetch()}
+        />
+      )}
     </div>
   );
 }
@@ -202,7 +212,13 @@ function FilterBar({
 // ReflectionCard (read-only — C5 adds the Edit button)
 // ===========================================================================
 
-function ReflectionCard({ reflection }: { reflection: ReflectionRow }): JSX.Element {
+function ReflectionCard({
+  reflection,
+  onEdit,
+}: {
+  reflection: ReflectionRow;
+  onEdit: () => void;
+}): JSX.Element {
   const { prompts } = useReflectionPrompts();
   const created = new Date(reflection.created_at);
   const time = created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -227,7 +243,16 @@ function ReflectionCard({ reflection }: { reflection: ReflectionRow }): JSX.Elem
     <article className={`bg-bg-secondary/30 rounded p-4 flex flex-col gap-3 ${accent} pl-4`}>
       <header className="flex items-baseline justify-between gap-3 flex-wrap">
         <h4 className="text-text-primary font-semibold">{heading}</h4>
-        <span className="text-xs text-text-secondary">{time}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-secondary">{time}</span>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="text-xs text-accent hover:underline"
+          >
+            Edit
+          </button>
+        </div>
       </header>
 
       {reflection.focus_rating !== null && (

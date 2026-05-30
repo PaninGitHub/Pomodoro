@@ -6,7 +6,7 @@ import { HINDRANCE_OPTIONS, FREE_TEXT_MAX } from '../config/reflection-prompts.c
 import { TaskReviewSections } from './TaskReviewSections';
 import type { PeriodTaskSnapshot } from '../timer/state/timerReducer';
 
-type FocusRating = 1 | 2 | 3 | 4;
+export type FocusRating = 1 | 2 | 3 | 4;
 
 // Top-level router. The two variants are extracted into their own
 // components so React's mount/unmount lifecycle naturally clears form
@@ -305,7 +305,7 @@ function ModalShell({ title, onSkip, onSubmit, submitting, children }: ModalShel
   );
 }
 
-function FocusRatingButtons({
+export function FocusRatingButtons({
   value,
   onChange,
 }: {
@@ -331,7 +331,7 @@ function FocusRatingButtons({
   );
 }
 
-function Overlay({ children }: { children: ReactNode }): JSX.Element {
+export function Overlay({ children }: { children: ReactNode }): JSX.Element {
   return (
     <div
       role="dialog"
@@ -343,7 +343,7 @@ function Overlay({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
-function FreeText({
+export function FreeText({
   label,
   value,
   onChange,
