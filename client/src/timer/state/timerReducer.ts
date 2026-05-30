@@ -53,6 +53,11 @@ export interface TimerState {
   freestyleAccumulation: boolean;
   freestyleBreaksEnabled: boolean;
   freestyleTargetEnabled: boolean; // per-session UI choice (default true)
+  // Per-mode "last duration" memory so switching modes restores the right
+  // value into totalMs rather than bleeding the prior mode's duration in.
+  // Pomodoro reads from pomodoroWorkMs; Freestyle idle is always 0
+  // (stopwatch); Timer needs its own slot since no setting backs it.
+  timerDurationMs: number;
 }
 
 export const POMODORO_DEFAULTS = {
@@ -86,6 +91,7 @@ export const initialTimerState: TimerState = {
   freestyleAccumulation: FREESTYLE_DEFAULT_ACCUMULATION,
   freestyleBreaksEnabled: FREESTYLE_DEFAULT_BREAKS_ENABLED,
   freestyleTargetEnabled: true,
+  timerDurationMs: DEFAULT_TIMER_MINUTES * 60 * 1000,
 };
 
 export type TimerAction =
@@ -145,12 +151,35 @@ function currentElapsedMs(state: TimerState, now: number): number {
 
 export function timerReducer(state: TimerState, action: TimerAction): TimerState {
   switch (action.type) {
-    case 'SELECT_MODE':
+    case 'SELECT_MODE': {
+      // Only allow mode switches when truly idle (no in-progress session).
+      // Restore totalMs to the per-mode "right value" so switching modes
+      // doesn't bleed the prior mode's duration into the display.
       if (state.status !== 'idle') return state;
-      return { ...state, mode: action.mode };
-    case 'SET_DURATION':
-      if (state.status !== 'idle') return state;
-      return { ...state, totalMs: Math.round(action.minutes * 60) * 1000 };
+      const nextTotal =
+        action.mode === 'timer'     ? state.timerDurationMs :
+        action.mode === 'pomodoro'  ? state.pomodoroWorkMs :
+        /* freestyle */               0;
+      return { ...state, mode: action.mode, totalMs: nextTotal, accumulatedMs: 0 };
+    }
+    case 'SET_DURATION': {
+      // Click-to-edit on the timer display.
+      // - idle: just update totalMs (and persist Timer-mode value into
+      //   timerDurationMs so it survives mode switches).
+      // - paused / completed: the user is editing the remaining time, so
+      //   the new value IS the time left from now — clear accumulatedMs.
+      // - running: ignore (TimerDisplay already gates editable to !running).
+      const totalMs = Math.round(action.minutes * 60) * 1000;
+      if (state.status === 'idle') {
+        return state.mode === 'timer'
+          ? { ...state, totalMs, timerDurationMs: totalMs }
+          : { ...state, totalMs };
+      }
+      if (state.status === 'paused' || state.status === 'completed') {
+        return { ...state, totalMs, accumulatedMs: 0 };
+      }
+      return state;
+    }
     case 'ADJUST_TOTAL': {
       if (state.status !== 'running' && state.status !== 'paused') return state;
       const next = state.totalMs + action.deltaMs;
@@ -160,14 +189,22 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       return { ...state, autoStartBreaks: action.value };
     case 'SET_AUTO_START_POMODOROS':
       return { ...state, autoStartPomodoros: action.value };
-    case 'SET_POMODORO_DURATIONS':
-      return {
+    case 'SET_POMODORO_DURATIONS': {
+      const next: TimerState = {
         ...state,
         pomodoroWorkMs: action.workMs,
         pomodoroShortBreakMs: action.shortBreakMs,
         pomodoroLongBreakMs: action.longBreakMs,
         pomodoroLongBreakEvery: action.longBreakEvery,
       };
+      // Live-sync: when idle Pomodoro with no in-progress session, push the
+      // new work duration into the displayed totalMs so settings changes
+      // reflect instantly. Running/paused sessions are left alone.
+      if (state.mode === 'pomodoro' && state.status === 'idle' && state.pomodoro === null) {
+        next.totalMs = action.workMs;
+      }
+      return next;
+    }
     case 'SET_FREESTYLE_RATIO':
       if (action.value <= 0) return state;
       return { ...state, freestyleRatio: Math.round(action.value * 100) / 100 };
