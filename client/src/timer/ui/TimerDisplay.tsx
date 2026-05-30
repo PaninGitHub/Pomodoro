@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTimer } from '../state/useTimer';
-import { formatTime } from '../math/timerMath';
 import { useSettings } from '../../settings/useSettings';
 
 /**
@@ -11,118 +10,155 @@ import { useSettings } from '../../settings/useSettings';
  *  - Freestyle WORK: count UP (elapsed time) — stopwatch behavior per C-09.
  *  - Freestyle BREAK: count DOWN (remaining break time).
  *
- * Click-to-edit (when not running):
- *  - Truly idle (no session started): updates work_duration setting for
- *    Pomodoro; per-session totalMs for Timer/Freestyle.
- *  - Otherwise (paused or completed): per-session totalMs only.
+ * Click-to-edit (Phase 2 mid-fix):
+ *  - Click any segment (hours / minutes / seconds) to edit JUST that
+ *    segment, not the whole display. The other segments stay rendered.
+ *  - Allowed when status is idle, paused, or completed. Disabled while
+ *    running and for any Freestyle period (Freestyle target lives in
+ *    Settings → Per-mode popup; stopwatch elapsed isn't user-editable).
+ *  - Truly-idle Pomodoro persists into settings.work_duration (whole
+ *    minutes only). Otherwise dispatches SET_DURATION as the new
+ *    "time left from now" (reducer resets accumulatedMs).
  */
 export function TimerDisplay(): JSX.Element {
   const { state, dispatch, remainingMs } = useTimer();
-  const { settings, updateSettings } = useSettings();
+  const { updateSettings } = useSettings();
 
-  const isFreestyleWork =
-    state.mode === 'freestyle' &&
-    state.freestyle?.periodType === 'work';
+  const isFreestyle = state.mode === 'freestyle';
+  const isFreestyleWork = isFreestyle && state.freestyle?.periodType === 'work';
 
-  // For Freestyle work, compute the "elapsed" value (count up).
-  const elapsedMs =
-    isFreestyleWork
-      ? (state.status === 'running'
-          ? state.accumulatedMs + (Date.now() - state.startTimestamp)
-          : state.accumulatedMs)
-      : 0;
+  // Freestyle work counts UP from accumulatedMs + (now - startTimestamp).
+  const elapsedMs = isFreestyleWork
+    ? (state.status === 'running'
+        ? state.accumulatedMs + (Date.now() - state.startTimestamp)
+        : state.accumulatedMs)
+    : 0;
 
-  // We need to refresh on tick when in Freestyle work (since elapsedMs uses Date.now()).
-  // useState forces re-render via the parent TimerContext tick. The remainingMs
-  // path already triggers re-renders on tick. To stay simple, derive a display
-  // value: countdown for non-Freestyle-work, count-up otherwise.
   const displayMs = isFreestyleWork ? elapsedMs : remainingMs;
 
-  const editable = state.status !== 'running';
+  // Editable: idle/paused/completed in non-Freestyle modes only.
+  const editable = state.status !== 'running' && !isFreestyle;
   const isTrulyIdle =
     state.status === 'idle' && state.pomodoro === null && state.freestyle === null;
 
-  const [editing, setEditing] = useState(false);
+  // Decompose displayMs into hh:mm:ss; show hours only when present.
+  const totalSeconds = Math.ceil(Math.max(0, displayMs) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const showHours = hours > 0;
+
+  const [editing, setEditing] = useState<'h' | 'm' | 's' | null>(null);
   const [raw, setRaw] = useState<string>('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
 
-  function beginEdit() {
+  function beginEdit(seg: 'h' | 'm' | 's') {
     if (!editable) return;
-    if (isFreestyleWork) return; // can't edit elapsed-time during freestyle work
-    const currentMin =
-      state.mode === 'pomodoro' && isTrulyIdle
-        ? settings.work_duration
-        : state.totalMs / 60000;
-    setRaw(String(currentMin));
-    setEditing(true);
+    const current = seg === 'h' ? hours : seg === 'm' ? minutes : seconds;
+    setRaw(String(current));
+    setEditing(seg);
   }
 
   function commit() {
-    setEditing(false);
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0 || n > 720) return;
+    const seg = editing;
+    setEditing(null);
+    if (!seg) return;
+    // Empty input or non-numeric: zero for that segment (per user request:
+    // numeric inputs are clearable; the timer left CAN be zero).
+    const parsed = raw === '' ? 0 : Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    const newH = seg === 'h' ? parsed : hours;
+    const newM = seg === 'm' ? parsed : minutes;
+    const newS = seg === 's' ? parsed : seconds;
+    const totalSec = newH * 3600 + newM * 60 + newS;
+    // 720-minute (12-hour) period cap.
+    const cappedSec = Math.min(totalSec, 720 * 60);
+
     if (state.mode === 'pomodoro' && isTrulyIdle) {
-      void updateSettings({ work_duration: Math.round(n) });
-    } else {
-      dispatch({ type: 'SET_DURATION', minutes: n });
+      // Truly idle Pomodoro persists into settings (whole minutes; min 1
+      // because work_duration has CHECK BETWEEN 1 AND 720).
+      const wholeMin = Math.max(1, Math.round(cappedSec / 60));
+      void updateSettings({ work_duration: wholeMin });
+      return;
     }
+    dispatch({ type: 'SET_DURATION', minutes: cappedSec / 60 });
   }
 
-  function cancel() {
-    setEditing(false);
-    setRaw('');
-  }
+  function cancel() { setEditing(null); setRaw(''); }
 
-  if (editing) {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  // Segment input class: matches digit font-size; narrow per-segment width.
+  const segInputCls =
+    'text-timer text-7xl md:text-9xl font-mono tabular-nums bg-bg-secondary border border-border rounded px-1 text-center w-[2.5ch] focus:outline-none focus:border-accent';
+  const segBtnCls = (active: boolean) =>
+    [
+      'text-timer text-7xl md:text-9xl font-mono tabular-nums select-none px-0.5',
+      editable ? 'cursor-text hover:bg-bg-secondary/40 rounded' : '',
+      active ? 'bg-bg-secondary/60 rounded' : '',
+    ].filter(Boolean).join(' ');
+  const sepCls = 'text-timer text-7xl md:text-9xl font-mono tabular-nums select-none';
+
+  function renderSegment(seg: 'h' | 'm' | 's', value: number) {
+    if (editing === seg) {
+      return (
+        <input
+          ref={inputRef}
+          type="number"
+          min={0}
+          max={seg === 'h' ? 12 : 59}
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') cancel();
+          }}
+          aria-label={`Edit ${seg === 'h' ? 'hours' : seg === 'm' ? 'minutes' : 'seconds'}`}
+          className={segInputCls}
+        />
+      );
+    }
     return (
-      <input
-        ref={inputRef}
-        type="number"
-        step="any"
-        min={0.0167}
-        max={720}
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-        onBlur={commit}
+      <span
+        role={editable ? 'button' : undefined}
+        tabIndex={editable ? 0 : -1}
+        onClick={() => beginEdit(seg)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
-          if (e.key === 'Escape') cancel();
+          if (editable && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            beginEdit(seg);
+          }
         }}
-        aria-label="Edit timer duration in minutes"
-        className="text-timer text-7xl md:text-9xl font-mono tabular-nums bg-bg-secondary border border-border rounded px-4 py-1 w-[14ch] text-center"
-      />
+        className={segBtnCls(false)}
+        title={editable ? `Click to edit ${seg === 'h' ? 'hours' : seg === 'm' ? 'minutes' : 'seconds'}` : undefined}
+      >
+        {pad(value)}
+      </span>
     );
   }
 
-  // Title hint: depends on mode + state
-  const title = !editable
-    ? undefined
-    : isFreestyleWork
-    ? undefined
-    : 'Click to edit duration';
-
   return (
     <div
-      role={editable && !isFreestyleWork ? 'button' : undefined}
-      tabIndex={editable && !isFreestyleWork ? 0 : -1}
-      onClick={beginEdit}
-      onKeyDown={(e) => {
-        if (editable && !isFreestyleWork && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault();
-          beginEdit();
-        }
-      }}
-      className={[
-        'text-timer text-7xl md:text-9xl font-mono tabular-nums select-none',
-        editable && !isFreestyleWork ? 'cursor-text hover:opacity-80' : '',
-      ].join(' ')}
+      className="flex items-baseline"
       aria-live="polite"
       aria-atomic="true"
-      title={title}
+      aria-label={
+        showHours
+          ? `${pad(hours)} hours ${pad(minutes)} minutes ${pad(seconds)} seconds`
+          : `${pad(minutes)} minutes ${pad(seconds)} seconds`
+      }
     >
-      {formatTime(displayMs)}
+      {showHours && (
+        <>
+          {renderSegment('h', hours)}
+          <span className={sepCls}>:</span>
+        </>
+      )}
+      {renderSegment('m', minutes)}
+      <span className={sepCls}>:</span>
+      {renderSegment('s', seconds)}
     </div>
   );
 }
