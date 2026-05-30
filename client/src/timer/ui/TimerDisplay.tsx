@@ -80,11 +80,17 @@ export function TimerDisplay(): JSX.Element {
     const cappedSec = Math.min(totalSec, 720 * 60);
 
     if (state.mode === 'pomodoro' && isTrulyIdle) {
-      // Truly idle Pomodoro persists into settings (whole minutes; min 1
-      // because work_duration has CHECK BETWEEN 1 AND 720).
-      const wholeMin = Math.max(1, Math.round(cappedSec / 60));
-      void updateSettings({ work_duration: wholeMin });
-      return;
+      // Settings.work_duration is INTEGER minutes. If the user edited
+      // a non-zero seconds portion (e.g. 26:24), persisting that would
+      // silently drop the seconds. Drop through to SET_DURATION so the
+      // per-session totalMs accepts seconds; settings only persists if
+      // the value is whole minutes (C-15 resolution).
+      if (cappedSec % 60 === 0) {
+        const wholeMin = Math.max(1, cappedSec / 60);
+        void updateSettings({ work_duration: wholeMin });
+        return;
+      }
+      // else fall through to SET_DURATION below
     }
     dispatch({ type: 'SET_DURATION', minutes: cappedSec / 60 });
   }
