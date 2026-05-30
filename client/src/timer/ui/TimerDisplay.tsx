@@ -22,7 +22,7 @@ import { useSettings } from '../../settings/useSettings';
  */
 export function TimerDisplay(): JSX.Element {
   const { state, dispatch, remainingMs } = useTimer();
-  const { updateSettings } = useSettings();
+  const { settings, updateSettings } = useSettings();
 
   const isFreestyle = state.mode === 'freestyle';
   const isFreestyleWork = isFreestyle && state.freestyle?.periodType === 'work';
@@ -49,7 +49,11 @@ export function TimerDisplay(): JSX.Element {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  const showHours = hours > 0;
+  // F1: settings.show_hours=false rolls hours into the minutes segment.
+  // Result: "120:00" instead of "02:00:00". 3-digit minutes display
+  // naturally via padStart(2) (which is a no-op for length > 2).
+  const showHoursSegment = settings.show_hours && hours > 0;
+  const displayMinutes = settings.show_hours ? minutes : (hours * 60 + minutes);
 
   const [editing, setEditing] = useState<'h' | 'm' | 's' | null>(null);
   const [raw, setRaw] = useState<string>('');
@@ -59,7 +63,10 @@ export function TimerDisplay(): JSX.Element {
 
   function beginEdit(seg: 'h' | 'm' | 's') {
     if (!editable) return;
-    const current = seg === 'h' ? hours : seg === 'm' ? minutes : seconds;
+    // In show_hours=false mode, the minute segment shows hours rolled up
+    // (displayMinutes). Use that as the edit baseline so an edit of "120"
+    // commits as 120 minutes, not as 120 added to a hidden hours value.
+    const current = seg === 'h' ? hours : seg === 'm' ? displayMinutes : seconds;
     setRaw(String(current));
     setEditing(seg);
   }
@@ -73,9 +80,15 @@ export function TimerDisplay(): JSX.Element {
     const parsed = raw === '' ? 0 : Number.parseInt(raw, 10);
     if (!Number.isFinite(parsed) || parsed < 0) return;
     const newH = seg === 'h' ? parsed : hours;
-    const newM = seg === 'm' ? parsed : minutes;
+    // In show_hours=false mode, the minute segment carries the full minute
+    // count. Treat hours as 0 in the time math when computing the new total
+    // — otherwise editing "150" with hours=2 still in scope would add 2h
+    // back in on top.
+    const minuteBaseline = settings.show_hours ? minutes : displayMinutes;
+    const newM = seg === 'm' ? parsed : minuteBaseline;
     const newS = seg === 's' ? parsed : seconds;
-    const totalSec = newH * 3600 + newM * 60 + newS;
+    const hoursContribution = settings.show_hours ? newH * 3600 : 0;
+    const totalSec = hoursContribution + newM * 60 + newS;
     // 720-minute (12-hour) period cap.
     const cappedSec = Math.min(totalSec, 720 * 60);
 
@@ -99,8 +112,12 @@ export function TimerDisplay(): JSX.Element {
 
   const pad = (n: number) => n.toString().padStart(2, '0');
   // Segment input class: matches digit font-size; narrow per-segment width.
-  const segInputCls =
-    'text-timer text-7xl md:text-9xl font-mono tabular-nums bg-bg-secondary border border-border rounded px-1 text-center w-[2.5ch] focus:outline-none focus:border-accent';
+  const segInputClsBase =
+    'text-timer text-7xl md:text-9xl font-mono tabular-nums bg-bg-secondary border border-border rounded px-1 text-center focus:outline-none focus:border-accent';
+  // F1: minutes input widens to 3.5ch when in MMM:SS mode so 3-digit
+  // values (e.g. 120) aren't visually clipped during edit.
+  const segInputCls = (seg: 'h' | 'm' | 's') =>
+    `${segInputClsBase} ${seg === 'm' && !settings.show_hours ? 'w-[3.5ch]' : 'w-[2.5ch]'}`;
   const segBtnCls = (active: boolean) =>
     [
       'text-timer text-7xl md:text-9xl font-mono tabular-nums select-none px-0.5',
@@ -116,7 +133,11 @@ export function TimerDisplay(): JSX.Element {
           ref={inputRef}
           type="number"
           min={0}
-          max={seg === 'h' ? 12 : 59}
+          max={
+            seg === 'h' ? 12
+              : seg === 'm' ? (settings.show_hours ? 59 : 720)
+              : 59
+          }
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           onBlur={commit}
@@ -125,7 +146,7 @@ export function TimerDisplay(): JSX.Element {
             if (e.key === 'Escape') cancel();
           }}
           aria-label={`Edit ${seg === 'h' ? 'hours' : seg === 'm' ? 'minutes' : 'seconds'}`}
-          className={segInputCls}
+          className={segInputCls(seg)}
         />
       );
     }
@@ -154,18 +175,18 @@ export function TimerDisplay(): JSX.Element {
       aria-live="polite"
       aria-atomic="true"
       aria-label={
-        showHours
+        showHoursSegment
           ? `${pad(hours)} hours ${pad(minutes)} minutes ${pad(seconds)} seconds`
-          : `${pad(minutes)} minutes ${pad(seconds)} seconds`
+          : `${pad(displayMinutes)} minutes ${pad(seconds)} seconds`
       }
     >
-      {showHours && (
+      {showHoursSegment && (
         <>
           {renderSegment('h', hours)}
           <span className={sepCls}>:</span>
         </>
       )}
-      {renderSegment('m', minutes)}
+      {renderSegment('m', displayMinutes)}
       <span className={sepCls}>:</span>
       {renderSegment('s', seconds)}
     </div>
