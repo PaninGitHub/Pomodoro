@@ -1,16 +1,32 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTimer } from '../timer/state/useTimer';
+import { useTasks } from '../tasks/useTasks';
 import { useReflectionPrompts } from './useReflectionPrompts';
 import { HINDRANCE_OPTIONS, FREE_TEXT_MAX } from '../config/reflection-prompts.config';
 import { TaskReviewSections } from './TaskReviewSections';
+import type { PeriodTaskSnapshot } from '../timer/state/timerReducer';
 
 type FocusRating = 1 | 2 | 3 | 4;
 
+// Top-level router. The two variants are extracted into their own
+// components so React's mount/unmount lifecycle naturally clears form
+// state between reflections — no manual reset effect needed.
 export function ReflectionModal(): JSX.Element | null {
-  const { state, dispatch } = useTimer();
-  const { prompts } = useReflectionPrompts();
+  const { state } = useTimer();
+  if (state.status !== 'reflecting') return null;
+  if (state.reflectionType === 'per_period') return <PerPeriodVariant />;
+  if (state.reflectionType === 'session') return <SessionVariant />;
+  return null;
+}
 
-  // Per-period reflection state. Session variant lands in Task 35.
+// ===========================================================================
+// Per-period variant (F-07)
+// ===========================================================================
+
+function PerPeriodVariant(): JSX.Element {
+  const { state, dispatch } = useTimer();
+  const { tasks: liveTasks } = useTasks();
+  const { prompts } = useReflectionPrompts();
   const [focusRating, setFocusRating] = useState<FocusRating | null>(null);
   const [hindrances, setHindrances] = useState<string[]>([]);
   const [didWell, setDidWell] = useState('');
@@ -18,24 +34,6 @@ export function ReflectionModal(): JSX.Element | null {
   const [hindranceDetail, setHindranceDetail] = useState('');
   const [taskStructure, setTaskStructure] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Reset form state when a new reflection opens. The modal stays mounted
-  // under TimerArea (Task 36) so component state would otherwise persist
-  // across reflections — period 1's answers would pre-fill period 2's
-  // form. Triggers on every transition INTO a new per-period reflection;
-  // reflectionPeriodNumber bumps each period so the deps catch it.
-  useEffect(() => {
-    if (state.status === 'reflecting' && state.reflectionType === 'per_period') {
-      setFocusRating(null);
-      setHindrances([]);
-      setDidWell('');
-      setDoBetter('');
-      setHindranceDetail('');
-      setTaskStructure('');
-    }
-  }, [state.status, state.reflectionType, state.reflectionPeriodNumber]);
-
-  if (state.status !== 'reflecting' || state.reflectionType !== 'per_period') return null;
 
   const snapshot = state.currentPeriodTasksSnapshot ?? [];
   const showHindrances = focusRating !== null && focusRating <= 2;
@@ -51,9 +49,6 @@ export function ReflectionModal(): JSX.Element | null {
   async function submit() {
     if (submitting) return;
 
-    // Build the answers payload from non-empty fields. Empty strings are
-    // treated as "skipped" and omitted so the server-side known-key
-    // whitelist doesn't reject them and the JSONB stays compact.
     const answers: Record<string, string | string[]> = {};
     if (didWell) answers.did_well = didWell;
     if (doBetter) answers.do_better = doBetter;
@@ -67,17 +62,14 @@ export function ReflectionModal(): JSX.Element | null {
       }
     }
 
-    // Fully-skipped body (no rating, no answers) -> no DB write per F-07.
     const hasAnyAnswer = focusRating !== null || Object.keys(answers).length > 0;
     if (!hasAnyAnswer) {
       dispatch({ type: 'REFLECTION_SKIPPED' });
       return;
     }
-
-    // Guests don't have a currentSessionId; reflections are auth-only per
-    // F-22. If somehow we got here without one, skip the POST and resolve
-    // locally so we don't 400 / 401 on the server.
     if (!state.currentSessionId) {
+      // Guest case (shouldn't reach this modal per F-22). Skip POST so we
+      // don't 401 on the server; the local state machine still advances.
       dispatch({ type: 'REFLECTION_SUBMITTED' });
       return;
     }
@@ -94,13 +86,9 @@ export function ReflectionModal(): JSX.Element | null {
           period_number: state.reflectionPeriodNumber,
           focus_rating: focusRating,
           answers,
-          tasks_snapshot: [], // populated in Task 35 alongside the session variant
+          tasks_snapshot: buildTasksSnapshotPayload(liveTasks, snapshot),
         }),
       });
-      // Always transition forward, even on POST failure — the user has
-      // moved on conceptually, and a failed network shouldn't block the
-      // Pomodoro flow. The reducer logs nothing about the failure; a
-      // future toast (Phase 3.5) can surface it.
       dispatch({ type: 'REFLECTION_SUBMITTED' });
     } finally {
       setSubmitting(false);
@@ -109,16 +97,12 @@ export function ReflectionModal(): JSX.Element | null {
 
   return (
     <Overlay>
-      <div className="bg-bg-primary border border-border rounded p-6 max-w-2xl w-full flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg text-text-primary">
-            Period {state.reflectionPeriodNumber} reflection
-          </h3>
-          <button type="button" onClick={skip} className="text-sm text-text-secondary underline">
-            Skip reflection
-          </button>
-        </div>
-
+      <ModalShell
+        title={`Period ${state.reflectionPeriodNumber} reflection`}
+        onSkip={skip}
+        onSubmit={() => void submit()}
+        submitting={submitting}
+      >
         <section>
           <h4 className="text-sm text-text-primary mb-2">Tasks</h4>
           <TaskReviewSections snapshot={snapshot} />
@@ -126,23 +110,7 @@ export function ReflectionModal(): JSX.Element | null {
 
         <section>
           <h4 className="text-sm text-text-primary mb-2">How focused were you?</h4>
-          <div className="flex gap-2">
-            {([1, 2, 3, 4] as FocusRating[]).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setFocusRating(n)}
-                aria-pressed={focusRating === n}
-                className={`px-4 py-2 rounded border ${
-                  focusRating === n
-                    ? 'border-accent text-accent'
-                    : 'border-border text-text-secondary'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
+          <FocusRatingButtons value={focusRating} onChange={setFocusRating} />
         </section>
 
         {showHindrances && (
@@ -177,26 +145,183 @@ export function ReflectionModal(): JSX.Element | null {
 
         <FreeText label={prompts.did_well} value={didWell} onChange={setDidWell} />
         <FreeText label={prompts.do_better} value={doBetter} onChange={setDoBetter} />
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={skip}
-            className="px-4 py-2 rounded border border-border text-text-secondary hover:bg-bg-secondary"
-          >
-            Skip all
-          </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={submitting}
-            className="px-4 py-2 rounded bg-accent text-bg-primary font-semibold disabled:opacity-50"
-          >
-            {submitting ? 'Saving…' : 'Submit'}
-          </button>
-        </div>
-      </div>
+      </ModalShell>
     </Overlay>
+  );
+}
+
+// ===========================================================================
+// Session variant (F-08)
+// ===========================================================================
+
+function SessionVariant(): JSX.Element {
+  const { state, dispatch } = useTimer();
+  const { tasks: liveTasks } = useTasks();
+  const { prompts } = useReflectionPrompts();
+  const [focusRating, setFocusRating] = useState<FocusRating | null>(null);
+  const [accomplishment, setAccomplishment] = useState('');
+  const [obstacle, setObstacle] = useState('');
+  const [doDifferently, setDoDifferently] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Session variant diffs against the WHOLE-session snapshot (union of
+  // every period's start snapshot, accumulated by the reducer).
+  const snapshot = state.sessionTasksSnapshot ?? [];
+
+  function skip() {
+    dispatch({ type: 'REFLECTION_SKIPPED' });
+  }
+
+  async function submit() {
+    if (submitting) return;
+
+    const answers: Record<string, string> = {};
+    if (accomplishment) answers.accomplishment = accomplishment;
+    if (obstacle) answers.obstacle = obstacle;
+    if (doDifferently) answers.do_differently = doDifferently;
+
+    const hasAnyAnswer = focusRating !== null || Object.keys(answers).length > 0;
+    if (!hasAnyAnswer) {
+      dispatch({ type: 'REFLECTION_SKIPPED' });
+      return;
+    }
+    if (!state.currentSessionId) {
+      dispatch({ type: 'REFLECTION_SUBMITTED' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await fetch('/api/reflections', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: state.currentSessionId,
+          type: 'session',
+          focus_rating: focusRating,
+          answers,
+          tasks_snapshot: buildTasksSnapshotPayload(liveTasks, snapshot),
+        }),
+      });
+      dispatch({ type: 'REFLECTION_SUBMITTED' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Overlay>
+      <ModalShell
+        title="Session reflection"
+        onSkip={skip}
+        onSubmit={() => void submit()}
+        submitting={submitting}
+      >
+        <section>
+          <h4 className="text-sm text-text-primary mb-2">Tasks this session</h4>
+          <TaskReviewSections snapshot={snapshot} />
+        </section>
+
+        <section>
+          <h4 className="text-sm text-text-primary mb-2">How focused were you overall?</h4>
+          <FocusRatingButtons value={focusRating} onChange={setFocusRating} />
+        </section>
+
+        <FreeText label={prompts.accomplishment} value={accomplishment} onChange={setAccomplishment} />
+        <FreeText label={prompts.obstacle} value={obstacle} onChange={setObstacle} />
+        <FreeText label={prompts.do_differently} value={doDifferently} onChange={setDoDifferently} />
+      </ModalShell>
+    </Overlay>
+  );
+}
+
+// ===========================================================================
+// Shared helpers
+// ===========================================================================
+
+/**
+ * Build the persisted tasks_snapshot payload from the live tasks list
+ * and the reference snapshot (per-period start or session-wide).
+ * Per spec §5: deleted tasks (in snapshot, missing from live) are omitted.
+ * The `added_during_period` flag is set for tasks whose id isn't in the
+ * reference snapshot.
+ */
+function buildTasksSnapshotPayload(
+  liveTasks: ReadonlyArray<{ id: string; name: string; is_complete: boolean }>,
+  reference: ReadonlyArray<PeriodTaskSnapshot>,
+): Array<{ task_id: string; name: string; is_complete: boolean; added_during_period: boolean }> {
+  const refIds = new Set(reference.map((s) => s.id));
+  return liveTasks.map((t) => ({
+    task_id: t.id,
+    name: t.name,
+    is_complete: t.is_complete,
+    added_during_period: !refIds.has(t.id),
+  }));
+}
+
+interface ModalShellProps {
+  title: string;
+  onSkip: () => void;
+  onSubmit: () => void;
+  submitting: boolean;
+  children: ReactNode;
+}
+
+function ModalShell({ title, onSkip, onSubmit, submitting, children }: ModalShellProps): JSX.Element {
+  return (
+    <div className="bg-bg-primary border border-border rounded p-6 max-w-2xl w-full flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg text-text-primary">{title}</h3>
+        <button type="button" onClick={onSkip} className="text-sm text-text-secondary underline">
+          Skip reflection
+        </button>
+      </div>
+      {children}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="px-4 py-2 rounded border border-border text-text-secondary hover:bg-bg-secondary"
+        >
+          Skip all
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={submitting}
+          className="px-4 py-2 rounded bg-accent text-bg-primary font-semibold disabled:opacity-50"
+        >
+          {submitting ? 'Saving…' : 'Submit'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FocusRatingButtons({
+  value,
+  onChange,
+}: {
+  value: FocusRating | null;
+  onChange: (v: FocusRating) => void;
+}): JSX.Element {
+  return (
+    <div className="flex gap-2">
+      {([1, 2, 3, 4] as FocusRating[]).map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          aria-pressed={value === n}
+          className={`px-4 py-2 rounded border ${
+            value === n ? 'border-accent text-accent' : 'border-border text-text-secondary'
+          }`}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
   );
 }
 
