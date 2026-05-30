@@ -1,4 +1,4 @@
-import { createContext, useReducer, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useReducer, useEffect, useRef, useState, type ReactNode } from 'react';
 import { timerReducer, initialTimerState, type TimerState, type TimerAction } from './timerReducer';
 import { computeRemaining } from '../math/timerMath';
 import { useSettings } from '../../settings/useSettings';
@@ -87,6 +87,37 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
     })();
     return () => { cancelled = true; };
   }, [authState.kind, state.status, state.currentSessionId, state.mode]);
+
+  // Patch the timer_sessions row when a session ends. "End" = status
+  // transitions to idle while we still have a captured session id from
+  // the prior run. The effect reads the prior id from a ref because the
+  // reducer (ABANDON / END_SESSION) clears currentSessionId in the same
+  // tick, so we'd miss it if we read it from state at the moment of close.
+  const prevSessionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (authState.kind !== 'signed_in') return;
+    const closing = state.status === 'idle' && prevSessionIdRef.current !== null;
+    if (closing) {
+      const closingId = prevSessionIdRef.current!;
+      prevSessionIdRef.current = null;
+      void (async () => {
+        try {
+          await fetch(`/api/sessions/${closingId}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ended_at: new Date().toISOString(), ended_early: true }),
+          });
+        } catch {
+          // Best-effort; the row stays open if the network fails. A
+          // future cleanup job can sweep stale open sessions.
+        }
+      })();
+    }
+    if (state.currentSessionId !== null) {
+      prevSessionIdRef.current = state.currentSessionId;
+    }
+  }, [authState.kind, state.status, state.currentSessionId]);
 
   const remainingMs = state.status === 'running'
     ? computeRemaining(state, now)
