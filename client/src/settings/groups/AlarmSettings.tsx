@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useSettings } from '../useSettings';
 import { requestNotificationPermission } from '../../utils/notification';
+import { NumericInput } from '../NumericInput';
+import { DEFAULT_SETTINGS } from '../settingsTypes';
 
 const inputCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary w-24';
 const labelCls = 'flex items-center gap-2 text-sm text-text-secondary';
@@ -86,9 +88,9 @@ export function AlarmSettings(): JSX.Element {
 
       <label className={labelCls}>
         Repeats
-        <input type="number" min={1} max={5} value={settings.alarm_repeats}
-               onChange={(e) => updateSettings({ alarm_repeats: Number.parseInt(e.target.value, 10) })}
-               className={inputCls} />
+        <NumericInput value={settings.alarm_repeats} defaultValue={DEFAULT_SETTINGS.alarm_repeats}
+                      min={1} max={5} onSave={(n) => void updateSettings({ alarm_repeats: n })}
+                      className={inputCls} />
       </label>
 
       <label className={labelCls}>
