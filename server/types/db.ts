@@ -59,6 +59,7 @@ export interface Settings {
   show_avatar: boolean;
   freestyle_target_minutes: number;
   show_hours: boolean;
+  week_start: 'sunday' | 'monday';
   updated_at: Date;
 }
 
