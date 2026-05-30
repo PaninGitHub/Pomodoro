@@ -81,4 +81,48 @@ describe.skipIf(SKIP)('Prompts endpoints', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('PATCH /api/prompts', () => {
+    it('updates existing prompt text and returns full map', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch('/api/prompts').send({
+        updates: { did_well: 'Custom did well text' },
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.prompts.did_well).toBe('Custom did well text');
+      expect(res.body.prompts.do_better).toBe('What can you do better?'); // unchanged
+      const keys = Object.keys(res.body.prompts).sort();
+      expect(keys.length).toBe(8);
+    });
+
+    it('updates multiple keys at once', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch('/api/prompts').send({
+        updates: { did_well: 'a', accomplishment: 'b' },
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.prompts.did_well).toBe('a');
+      expect(res.body.prompts.accomplishment).toBe('b');
+    });
+
+    it('400 on unknown key', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch('/api/prompts').send({ updates: { bogus: 'x' } });
+      expect(res.status).toBe(400);
+    });
+
+    it('400 on text over 1280 chars', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch('/api/prompts').send({
+        updates: { did_well: 'x'.repeat(1281) },
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('401 without auth', async () => {
+      const app = buildApp(sql, null);
+      const res = await request(app).patch('/api/prompts').send({ updates: { did_well: 'x' } });
+      expect(res.status).toBe(401);
+    });
+  });
 });
