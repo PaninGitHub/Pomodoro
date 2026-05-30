@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTimer } from '../timer/state/useTimer';
 import { useReflectionPrompts } from './useReflectionPrompts';
 import { HINDRANCE_OPTIONS, FREE_TEXT_MAX } from '../config/reflection-prompts.config';
@@ -18,6 +18,22 @@ export function ReflectionModal(): JSX.Element | null {
   const [hindranceDetail, setHindranceDetail] = useState('');
   const [taskStructure, setTaskStructure] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Reset form state when a new reflection opens. The modal stays mounted
+  // under TimerArea (Task 36) so component state would otherwise persist
+  // across reflections — period 1's answers would pre-fill period 2's
+  // form. Triggers on every transition INTO a new per-period reflection;
+  // reflectionPeriodNumber bumps each period so the deps catch it.
+  useEffect(() => {
+    if (state.status === 'reflecting' && state.reflectionType === 'per_period') {
+      setFocusRating(null);
+      setHindrances([]);
+      setDidWell('');
+      setDoBetter('');
+      setHindranceDetail('');
+      setTaskStructure('');
+    }
+  }, [state.status, state.reflectionType, state.reflectionPeriodNumber]);
 
   if (state.status !== 'reflecting' || state.reflectionType !== 'per_period') return null;
 
