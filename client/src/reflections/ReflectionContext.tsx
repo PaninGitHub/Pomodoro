@@ -38,8 +38,29 @@ export function ReflectionPromptsProvider({ children }: { children: ReactNode })
   }, [authState]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    // Cancelled-flag guard against an auth state change mid-fetch:
+    // if the user signs out while a signed_in GET is in flight, the
+    // late setPrompts would otherwise leak the prior user's text into
+    // the signed-out state for one render.
+    let cancelled = false;
+    void (async () => {
+      if (authState.kind !== 'signed_in') {
+        if (!cancelled) setPrompts({ ...DEFAULT_PROMPTS });
+        return;
+      }
+      try {
+        const res = await fetch('/api/prompts', { credentials: 'include' });
+        if (cancelled) return;
+        if (res.status === 200) {
+          const body = (await res.json()) as { prompts: Partial<PromptsMap> };
+          if (!cancelled) setPrompts({ ...DEFAULT_PROMPTS, ...body.prompts });
+        }
+      } catch {
+        // Network failure: keep current map.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authState]);
 
   return (
     <ReflectionContext.Provider value={{ prompts, refresh }}>
