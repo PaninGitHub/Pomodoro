@@ -125,4 +125,36 @@ describe.skipIf(SKIP)('Prompts endpoints', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('POST /api/prompts/reset', () => {
+    it('restores all prompts to config defaults', async () => {
+      // First customize a few so we can verify the reset reverts them.
+      const app = buildApp(sql, userIdA);
+      await request(app).patch('/api/prompts').send({
+        updates: { did_well: 'My custom did_well', accomplishment: 'My custom accomplishment' },
+      });
+
+      const res = await request(app).post('/api/prompts/reset').send({});
+      expect(res.status).toBe(200);
+      expect(res.body.prompts.did_well).toBe('What did you do well?');
+      expect(res.body.prompts.accomplishment).toBe('What was your biggest accomplishment today?');
+      const keys = Object.keys(res.body.prompts).sort();
+      expect(keys.length).toBe(8);
+    });
+
+    it('is idempotent (reset twice produces same result)', async () => {
+      const app = buildApp(sql, userIdA);
+      await request(app).post('/api/prompts/reset').send({});
+      const res2 = await request(app).post('/api/prompts/reset').send({});
+      expect(res2.status).toBe(200);
+      const keys = Object.keys(res2.body.prompts).sort();
+      expect(keys.length).toBe(8);
+    });
+
+    it('401 without auth', async () => {
+      const app = buildApp(sql, null);
+      const res = await request(app).post('/api/prompts/reset').send({});
+      expect(res.status).toBe(401);
+    });
+  });
 });

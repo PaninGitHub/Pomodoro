@@ -21,7 +21,7 @@ interface ValidatedReflection {
   tasks_snapshot: ReflectionTaskSnapshotEntry[];
 }
 
-function validateAnswers(input: unknown): Result<ReflectionAnswers> {
+export function validateAnswers(input: unknown): Result<ReflectionAnswers> {
   if (input === null || input === undefined) return { ok: true, value: {} };
   if (typeof input !== 'object' || Array.isArray(input)) {
     return { ok: false, error: 'answers must be an object.' };
@@ -49,7 +49,7 @@ function validateAnswers(input: unknown): Result<ReflectionAnswers> {
   return { ok: true, value: out };
 }
 
-function validateTasksSnapshot(input: unknown): Result<ReflectionTaskSnapshotEntry[]> {
+export function validateTasksSnapshot(input: unknown): Result<ReflectionTaskSnapshotEntry[]> {
   if (!Array.isArray(input)) return { ok: false, error: 'tasks_snapshot must be an array.' };
   const out: ReflectionTaskSnapshotEntry[] = [];
   for (const entry of input) {
@@ -126,4 +126,52 @@ export function validateCreateReflection(body: unknown): Result<ValidatedReflect
       tasks_snapshot: snap.value,
     },
   };
+}
+
+interface ValidatedReflectionUpdate {
+  focus_rating?: number | null;
+  answers?: ReflectionAnswers;
+  tasks_snapshot?: ReflectionTaskSnapshotEntry[];
+}
+
+// PATCH validator for F-10 edit. Only allows editing the three "soft"
+// fields. type, period_number, session_id, and user_id are immutable;
+// changing them would mean it's a different reflection entry, not an
+// edit. Requires at least one field present in the body.
+export function validateUpdateReflection(body: unknown): Result<ValidatedReflectionUpdate> {
+  if (typeof body !== 'object' || body === null) return { ok: false, error: 'Invalid request body.' };
+  const b = body as Record<string, unknown>;
+  const out: ValidatedReflectionUpdate = {};
+
+  if ('focus_rating' in b && b.focus_rating !== undefined) {
+    if (b.focus_rating === null) {
+      out.focus_rating = null;
+    } else if (typeof b.focus_rating !== 'number' || !Number.isInteger(b.focus_rating) || b.focus_rating < 1 || b.focus_rating > 4) {
+      return { ok: false, error: 'focus_rating must be an integer between 1 and 4 (or null to clear).' };
+    } else {
+      out.focus_rating = b.focus_rating;
+    }
+  }
+
+  if ('answers' in b && b.answers !== undefined) {
+    const r = validateAnswers(b.answers);
+    if (!r.ok) return r;
+    // Apply the same 10 KB serialized cap that create enforces.
+    const serialized = JSON.stringify(r.value);
+    if (serialized.length > 10 * 1024) {
+      return { ok: false, error: 'answers payload exceeds 10 KB.' };
+    }
+    out.answers = r.value;
+  }
+
+  if ('tasks_snapshot' in b && b.tasks_snapshot !== undefined) {
+    const r = validateTasksSnapshot(b.tasks_snapshot);
+    if (!r.ok) return r;
+    out.tasks_snapshot = r.value;
+  }
+
+  if (Object.keys(out).length === 0) {
+    return { ok: false, error: 'Provide at least one field to update (focus_rating, answers, tasks_snapshot).' };
+  }
+  return { ok: true, value: out };
 }
