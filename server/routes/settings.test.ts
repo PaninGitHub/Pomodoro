@@ -72,6 +72,14 @@ describe.skipIf(SKIP)('Settings endpoints', () => {
       const [count] = await sql<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM settings WHERE user_id = ${userId}`;
       expect(count?.n).toBe(1);
     });
+
+    it('returns show_avatar and freestyle_target_minutes (migration 012 fields)', async () => {
+      const app = buildApp(sql, userId);
+      const res = await request(app).get('/api/settings');
+      expect(res.status).toBe(200);
+      expect(res.body.settings).toHaveProperty('show_avatar', true);
+      expect(res.body.settings).toHaveProperty('freestyle_target_minutes', 25);
+    });
   });
 
   describe('PATCH /api/settings', () => {
