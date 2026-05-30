@@ -3,6 +3,7 @@ import { timerReducer, initialTimerState, type TimerState, type TimerAction } fr
 import { computeRemaining } from '../math/timerMath';
 import { useSettings } from '../../settings/useSettings';
 import { useAuth } from '../../auth/useAuth';
+import { useTasks } from '../../tasks/useTasks';
 
 interface TimerContextValue {
   state: TimerState;
@@ -19,6 +20,7 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
   const [now, setNow] = useState<number>(Date.now());
   const { settings } = useSettings();
   const { state: authState } = useAuth();
+  const { tasks } = useTasks();
 
   useEffect(() => {
     if (state.status !== 'running') return;
@@ -87,6 +89,35 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
     })();
     return () => { cancelled = true; };
   }, [authState.kind, state.status, state.currentSessionId, state.mode]);
+
+  // Capture period-start tasks snapshot whenever a work period begins.
+  // Work-period start = status transitions to 'running' AND the current
+  // period (or mode for Timer) is a work period. The
+  // `currentPeriodTasksSnapshot !== null` guard prevents recapture during
+  // the same period; the reducer clears it on REFLECTION_SUBMITTED /
+  // REFLECTION_SKIPPED / END_SESSION so the next work period repopulates.
+  useEffect(() => {
+    if (state.status !== 'running') return;
+    if (state.currentPeriodTasksSnapshot !== null) return;
+
+    const isWorkPeriod =
+      state.mode === 'timer' ||
+      (state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work') ||
+      (state.mode === 'freestyle' && state.freestyle?.periodType === 'work');
+    if (!isWorkPeriod) return;
+
+    dispatch({
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: tasks.map((t) => ({ id: t.id, name: t.name })),
+    });
+  }, [
+    state.status,
+    state.mode,
+    state.pomodoro?.periodType,
+    state.freestyle?.periodType,
+    state.currentPeriodTasksSnapshot,
+    tasks,
+  ]);
 
   // Patch the timer_sessions row when a session ends. "End" = status
   // transitions to idle while we still have a captured session id from
