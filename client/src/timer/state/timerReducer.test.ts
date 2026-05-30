@@ -420,3 +420,245 @@ describe('timerReducer — SET_POMODORO_DURATIONS live-syncs idle Pomodoro displ
     expect(s.totalMs).toBe(initialTimerState.totalMs);
   });
 });
+
+describe('timerReducer — currentSessionId (Phase 3 Rollout 2)', () => {
+  it('initialTimerState has currentSessionId: null', () => {
+    expect(initialTimerState.currentSessionId).toBeNull();
+  });
+
+  it('SET_SESSION_ID sets the value', () => {
+    const s = timerReducer(initialTimerState, { type: 'SET_SESSION_ID', sessionId: 'abc-123' });
+    expect(s.currentSessionId).toBe('abc-123');
+  });
+
+  it('SET_SESSION_ID with null clears it', () => {
+    const withId: TimerState = { ...initialTimerState, currentSessionId: 'abc-123' };
+    const s = timerReducer(withId, { type: 'SET_SESSION_ID', sessionId: null });
+    expect(s.currentSessionId).toBeNull();
+  });
+
+  it('END_SESSION clears currentSessionId', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'running',
+      currentSessionId: 'abc-123',
+    };
+    const s = timerReducer(live, { type: 'END_SESSION' });
+    expect(s.currentSessionId).toBeNull();
+  });
+
+  it('ABANDON clears currentSessionId', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'running',
+      currentSessionId: 'abc-123',
+    };
+    const s = timerReducer(live, { type: 'ABANDON' });
+    expect(s.currentSessionId).toBeNull();
+  });
+});
+
+describe('timerReducer — reflection status (Phase 3 Rollout 3)', () => {
+  it('initial state has reflection fields null/clear', () => {
+    expect(initialTimerState.reflectionType).toBeNull();
+    expect(initialTimerState.reflectionPeriodNumber).toBeNull();
+    expect(initialTimerState.nextPeriodKindAfterReflection).toBeNull();
+    expect(initialTimerState.currentPeriodTasksSnapshot).toBeNull();
+    expect(initialTimerState.sessionTasksSnapshot).toBeNull();
+  });
+
+  it('WORK_PERIOD_DONE transitions to reflecting + records type + period + next-kind', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'running',
+      pomodoro: { periodType: 'work', workCount: 0 },
+    };
+    const s = timerReducer(live, { type: 'WORK_PERIOD_DONE', now: 100, nextPeriodKind: 'short_break' });
+    expect(s.status).toBe('reflecting');
+    expect(s.reflectionType).toBe('per_period');
+    expect(s.reflectionPeriodNumber).toBe(1); // workCount + 1
+    expect(s.nextPeriodKindAfterReflection).toBe('short_break');
+  });
+
+  it('WORK_PERIOD_DONE in Timer mode records period_number=1', () => {
+    const live: TimerState = { ...initialTimerState, mode: 'timer', status: 'running' };
+    const s = timerReducer(live, { type: 'WORK_PERIOD_DONE', now: 100, nextPeriodKind: 'session_end' });
+    expect(s.status).toBe('reflecting');
+    expect(s.reflectionPeriodNumber).toBe(1);
+  });
+
+  it('REFLECTION_SUBMITTED with nextPeriodKind=session_end transitions to reflecting (session variant)', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'per_period',
+      reflectionPeriodNumber: 1,
+      nextPeriodKindAfterReflection: 'session_end',
+      pomodoro: { periodType: 'work', workCount: 0 },
+    };
+    const s = timerReducer(live, { type: 'REFLECTION_SUBMITTED' });
+    expect(s.status).toBe('reflecting');
+    expect(s.reflectionType).toBe('session');
+    expect(s.reflectionPeriodNumber).toBeNull();
+  });
+
+  it('REFLECTION_SUBMITTED with nextPeriodKind=short_break exits reflection + completes period', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'per_period',
+      reflectionPeriodNumber: 1,
+      nextPeriodKindAfterReflection: 'short_break',
+      pomodoro: { periodType: 'work', workCount: 0 },
+    };
+    const s = timerReducer(live, { type: 'REFLECTION_SUBMITTED' });
+    expect(s.status).toBe('completed');
+    expect(s.pomodoro?.periodType).toBe('short_break');
+    expect(s.pomodoro?.workCount).toBe(1);
+    expect(s.reflectionType).toBeNull();
+  });
+
+  it('REFLECTION_SKIPPED behaves identically to SUBMITTED for state transitions', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'per_period',
+      reflectionPeriodNumber: 2,
+      nextPeriodKindAfterReflection: 'long_break',
+      pomodoro: { periodType: 'work', workCount: 3 },
+    };
+    const submitted = timerReducer(live, { type: 'REFLECTION_SUBMITTED' });
+    const skipped = timerReducer(live, { type: 'REFLECTION_SKIPPED' });
+    expect(submitted.status).toBe(skipped.status);
+    expect(submitted.pomodoro?.periodType).toBe(skipped.pomodoro?.periodType);
+  });
+
+  it('REFLECTION_SUBMITTED on session reflection returns to idle', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'session',
+      reflectionPeriodNumber: null,
+      nextPeriodKindAfterReflection: null,
+      currentSessionId: 'abc-123',
+      currentPeriodTasksSnapshot: [{ id: 't1', name: 'one' }],
+      sessionTasksSnapshot: [{ id: 't1', name: 'one' }],
+      pomodoro: { periodType: 'work', workCount: 4 },
+    };
+    const s = timerReducer(live, { type: 'REFLECTION_SUBMITTED' });
+    expect(s.status).toBe('idle');
+    expect(s.reflectionType).toBeNull();
+    expect(s.currentSessionId).toBeNull();
+    expect(s.currentPeriodTasksSnapshot).toBeNull();
+    expect(s.sessionTasksSnapshot).toBeNull();
+    expect(s.pomodoro).toBeNull();
+  });
+
+  it('END_SESSION_WITH_REFLECTION transitions to reflecting (session variant)', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'running',
+      mode: 'pomodoro',
+      pomodoro: { periodType: 'work', workCount: 2 },
+    };
+    const s = timerReducer(live, { type: 'END_SESSION_WITH_REFLECTION' });
+    expect(s.status).toBe('reflecting');
+    expect(s.reflectionType).toBe('session');
+    expect(s.reflectionPeriodNumber).toBeNull();
+  });
+
+  it('SET_PERIOD_TASKS_SNAPSHOT replaces current snapshot and accumulates session snapshot', () => {
+    const s1 = timerReducer(initialTimerState, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'Alpha' }],
+    });
+    expect(s1.currentPeriodTasksSnapshot).toEqual([{ id: 'a', name: 'Alpha' }]);
+    expect(s1.sessionTasksSnapshot).toEqual([{ id: 'a', name: 'Alpha' }]);
+
+    // Next period: 'a' carried over (same id), 'b' added.
+    const s2 = timerReducer(s1, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }],
+    });
+    expect(s2.currentPeriodTasksSnapshot?.map((t) => t.id)).toEqual(['a', 'b']);
+    expect(s2.sessionTasksSnapshot?.map((t) => t.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('END_SESSION clears all reflection and snapshot fields', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'reflecting',
+      reflectionType: 'session',
+      reflectionPeriodNumber: 1,
+      nextPeriodKindAfterReflection: 'short_break',
+      currentPeriodTasksSnapshot: [{ id: 't1', name: 'one' }],
+      sessionTasksSnapshot: [{ id: 't1', name: 'one' }],
+    };
+    const s = timerReducer(live, { type: 'END_SESSION' });
+    expect(s.status).toBe('idle');
+    expect(s.reflectionType).toBeNull();
+    expect(s.reflectionPeriodNumber).toBeNull();
+    expect(s.nextPeriodKindAfterReflection).toBeNull();
+    expect(s.currentPeriodTasksSnapshot).toBeNull();
+    expect(s.sessionTasksSnapshot).toBeNull();
+  });
+
+  it('REFLECTION_SUBMITTED is a no-op when reflectionType is null (defensive — double-submit)', () => {
+    // Scenario: modal submits, status flips to 'completed', then a
+    // duplicate dispatch arrives (React 18 StrictMode, fast double-click).
+    const afterFirstSubmit: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'completed',
+      reflectionType: null,
+      pomodoro: { periodType: 'short_break', workCount: 1 },
+    };
+    const s = timerReducer(afterFirstSubmit, { type: 'REFLECTION_SUBMITTED' });
+    expect(s).toBe(afterFirstSubmit); // referential equality — no state change
+  });
+
+  it('REFLECTION_SKIPPED is a no-op when reflectionType is null', () => {
+    const afterFirstSubmit: TimerState = {
+      ...initialTimerState,
+      status: 'idle',
+      reflectionType: null,
+    };
+    const s = timerReducer(afterFirstSubmit, { type: 'REFLECTION_SKIPPED' });
+    expect(s).toBe(afterFirstSubmit);
+  });
+
+  it('WORK_PERIOD_DONE is idempotent on re-entry (StrictMode double-fire)', () => {
+    // Scenario: the period-end effect dispatches WORK_PERIOD_DONE twice
+    // (React 18 StrictMode dev mode). The second dispatch lands while
+    // status is already 'reflecting'. Should not corrupt state.
+    const live: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'running',
+      pomodoro: { periodType: 'work', workCount: 2 },
+    };
+    const once = timerReducer(live, { type: 'WORK_PERIOD_DONE', now: 100, nextPeriodKind: 'short_break' });
+    const twice = timerReducer(once, { type: 'WORK_PERIOD_DONE', now: 200, nextPeriodKind: 'short_break' });
+    expect(twice.status).toBe('reflecting');
+    expect(twice.reflectionType).toBe('per_period');
+    expect(twice.reflectionPeriodNumber).toBe(3); // pomodoro.workCount stayed at 2; +1
+    expect(twice.nextPeriodKindAfterReflection).toBe('short_break');
+  });
+
+  it('SET_PERIOD_TASKS_SNAPSHOT picks up rename (latest name wins on duplicate id)', () => {
+    const s1 = timerReducer(initialTimerState, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'Old name' }],
+    });
+    const s2 = timerReducer(s1, {
+      type: 'SET_PERIOD_TASKS_SNAPSHOT',
+      tasks: [{ id: 'a', name: 'New name' }],
+    });
+    expect(s2.sessionTasksSnapshot).toEqual([{ id: 'a', name: 'New name' }]);
+  });
+});

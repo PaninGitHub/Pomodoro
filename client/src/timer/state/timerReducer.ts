@@ -1,9 +1,16 @@
 import { earnedBreakMs } from '../math/freestyleMath';
 
 export type TimerMode = 'timer' | 'pomodoro' | 'freestyle';
-export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
+export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed' | 'reflecting';
 export type PomodoroPeriodType = 'work' | 'short_break' | 'long_break';
 export type FreestylePeriodType = 'work' | 'break';
+export type ReflectionType = 'per_period' | 'session';
+export type NextPeriodKind = 'short_break' | 'long_break' | 'work' | 'session_end';
+
+export interface PeriodTaskSnapshot {
+  id: string;
+  name: string;
+}
 
 export interface PomodoroState {
   periodType: PomodoroPeriodType;
@@ -58,6 +65,23 @@ export interface TimerState {
   // Pomodoro reads from pomodoroWorkMs; Freestyle idle is always 0
   // (stopwatch); Timer needs its own slot since no setting backs it.
   timerDurationMs: number;
+  // Live timer_sessions row id for the active session, or null for guests
+  // / pre-START. Set by TimerContext effect after POST /api/sessions
+  // resolves; cleared on END_SESSION / ABANDON.
+  currentSessionId: string | null;
+  // Reflection state (Phase 3 Rollout 3).
+  // reflectionType + reflectionPeriodNumber populated while status='reflecting'.
+  // nextPeriodKindAfterReflection is stashed by WORK_PERIOD_DONE so the
+  // REFLECTION_SUBMITTED / SKIPPED case knows what to queue next.
+  reflectionType: ReflectionType | null;
+  reflectionPeriodNumber: number | null;
+  nextPeriodKindAfterReflection: NextPeriodKind | null;
+  // Snapshot of the tasks list at period-start; effect in TimerContext
+  // dispatches SET_PERIOD_TASKS_SNAPSHOT (reducer can't read TasksContext).
+  // sessionTasksSnapshot accumulates per-period snapshots deduped by id
+  // and feeds the F-08 session reflection's task review.
+  currentPeriodTasksSnapshot: PeriodTaskSnapshot[] | null;
+  sessionTasksSnapshot: PeriodTaskSnapshot[] | null;
 }
 
 export const POMODORO_DEFAULTS = {
@@ -92,6 +116,12 @@ export const initialTimerState: TimerState = {
   freestyleBreaksEnabled: FREESTYLE_DEFAULT_BREAKS_ENABLED,
   freestyleTargetEnabled: true,
   timerDurationMs: DEFAULT_TIMER_MINUTES * 60 * 1000,
+  currentSessionId: null,
+  reflectionType: null,
+  reflectionPeriodNumber: null,
+  nextPeriodKindAfterReflection: null,
+  currentPeriodTasksSnapshot: null,
+  sessionTasksSnapshot: null,
 };
 
 export type TimerAction =
@@ -121,7 +151,13 @@ export type TimerAction =
   | { type: 'FREESTYLE_RESET'; now: number }
   | { type: 'FREESTYLE_END_WORK'; now: number }
   | { type: 'FREESTYLE_START_BREAK'; now: number }
-  | { type: 'FREESTYLE_SKIP_BREAK'; now: number };
+  | { type: 'FREESTYLE_SKIP_BREAK'; now: number }
+  | { type: 'SET_SESSION_ID'; sessionId: string | null }
+  | { type: 'WORK_PERIOD_DONE'; now: number; nextPeriodKind: NextPeriodKind }
+  | { type: 'END_SESSION_WITH_REFLECTION' }
+  | { type: 'REFLECTION_SUBMITTED' }
+  | { type: 'REFLECTION_SKIPPED' }
+  | { type: 'SET_PERIOD_TASKS_SNAPSHOT'; tasks: PeriodTaskSnapshot[] };
 
 function nextPomodoroPeriod(current: PomodoroState, state: TimerState): {
   periodType: PomodoroPeriodType;
@@ -254,15 +290,10 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       if (state.status !== 'paused') return state;
       return { ...state, status: 'running', startTimestamp: action.now };
     case 'ABANDON':
-      return {
-        ...state,
-        status: 'idle',
-        startTimestamp: 0,
-        accumulatedMs: 0,
-        pomodoro: null,
-        freestyle: null,
-      };
     case 'END_SESSION':
+      // Both reset to a clean idle state including reflection + snapshot
+      // fields. ABANDON and END_SESSION now clear the same set; if they
+      // diverge again, fork the cases.
       return {
         ...state,
         status: 'idle',
@@ -270,7 +301,136 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         accumulatedMs: 0,
         pomodoro: null,
         freestyle: null,
+        currentSessionId: null,
+        reflectionType: null,
+        reflectionPeriodNumber: null,
+        nextPeriodKindAfterReflection: null,
+        currentPeriodTasksSnapshot: null,
+        sessionTasksSnapshot: null,
       };
+    case 'SET_SESSION_ID':
+      return { ...state, currentSessionId: action.sessionId };
+
+    // ============================================================
+    // Reflection (Phase 3 Rollout 3)
+    // ============================================================
+
+    case 'WORK_PERIOD_DONE': {
+      // Fired by TimerArea's period-end effect when reflection_enabled
+      // AND it was a work period. Stash nextPeriodKind so the
+      // REFLECTION_SUBMITTED / SKIPPED case knows what to queue.
+      const periodNumber = state.mode === 'pomodoro'
+        ? (state.pomodoro?.workCount ?? 0) + 1
+        : 1;
+      return {
+        ...state,
+        status: 'reflecting',
+        reflectionType: 'per_period',
+        reflectionPeriodNumber: periodNumber,
+        nextPeriodKindAfterReflection: action.nextPeriodKind,
+      };
+    }
+
+    case 'END_SESSION_WITH_REFLECTION': {
+      // User clicked End Session early AND reflection_enabled — go
+      // straight into the session reflection variant.
+      //
+      // Intentional: we keep pomodoro / freestyle / currentSessionId /
+      // startTimestamp / accumulatedMs from the running state so the
+      // session-reflection modal can read state.pomodoro.workCount and
+      // friends for its summary. They get cleared on the subsequent
+      // REFLECTION_SUBMITTED (session branch below).
+      return {
+        ...state,
+        status: 'reflecting',
+        reflectionType: 'session',
+        reflectionPeriodNumber: null,
+        nextPeriodKindAfterReflection: null,
+      };
+    }
+
+    case 'REFLECTION_SUBMITTED':
+    case 'REFLECTION_SKIPPED': {
+      // Defensive no-op: dispatched while reflectionType is already
+      // cleared (e.g. modal double-submit after the first dispatch
+      // already chained or returned to idle). Without this guard the
+      // per-period branch below would clobber `status` to 'completed'.
+      if (state.reflectionType === null) return state;
+
+      // Per-period reflection finishing on a session-end -> chain into
+      // the session reflection.
+      if (state.reflectionType === 'per_period' && state.nextPeriodKindAfterReflection === 'session_end') {
+        return {
+          ...state,
+          reflectionType: 'session',
+          reflectionPeriodNumber: null,
+          nextPeriodKindAfterReflection: null,
+          // currentPeriodTasksSnapshot kept until session reflection submits.
+        };
+      }
+      // Session reflection finishing -> back to idle (END_SESSION semantics).
+      if (state.reflectionType === 'session') {
+        return {
+          ...state,
+          status: 'idle',
+          startTimestamp: 0,
+          accumulatedMs: 0,
+          pomodoro: null,
+          freestyle: null,
+          currentSessionId: null,
+          reflectionType: null,
+          reflectionPeriodNumber: null,
+          nextPeriodKindAfterReflection: null,
+          currentPeriodTasksSnapshot: null,
+          sessionTasksSnapshot: null,
+        };
+      }
+      // Per-period reflection finishing -> advance to the next period.
+      const nextKind = state.nextPeriodKindAfterReflection;
+      const cleared = {
+        ...state,
+        status: 'completed' as const,
+        startTimestamp: 0,
+        accumulatedMs: 0,
+        reflectionType: null,
+        reflectionPeriodNumber: null,
+        nextPeriodKindAfterReflection: null,
+        currentPeriodTasksSnapshot: null,
+      };
+      if (state.mode === 'pomodoro' && state.pomodoro && nextKind && nextKind !== 'session_end') {
+        const newWorkCount = state.pomodoro.periodType === 'work'
+          ? state.pomodoro.workCount + 1
+          : state.pomodoro.workCount;
+        const totalMs = nextKind === 'work'
+          ? state.pomodoroWorkMs
+          : nextKind === 'long_break'
+            ? state.pomodoroLongBreakMs
+            : state.pomodoroShortBreakMs;
+        return {
+          ...cleared,
+          totalMs,
+          pomodoro: { periodType: nextKind, workCount: newWorkCount },
+        };
+      }
+      return cleared;
+    }
+
+    case 'SET_PERIOD_TASKS_SNAPSHOT': {
+      // Replace the per-period snapshot and accumulate into the session-
+      // wide snapshot (deduplicated by id). Map.set overwrites on duplicate
+      // ids so the latest snapshot's `name` wins — intentional: the F-08
+      // session reflection should show the task's current name after a
+      // mid-session rename, not a stale start-of-period name.
+      const existingSession = state.sessionTasksSnapshot ?? [];
+      const sessionMap = new Map<string, PeriodTaskSnapshot>();
+      for (const t of existingSession) sessionMap.set(t.id, t);
+      for (const t of action.tasks) sessionMap.set(t.id, t);
+      return {
+        ...state,
+        currentPeriodTasksSnapshot: action.tasks,
+        sessionTasksSnapshot: Array.from(sessionMap.values()),
+      };
+    }
 
     // ============================================================
     // Freestyle-specific (C-09)

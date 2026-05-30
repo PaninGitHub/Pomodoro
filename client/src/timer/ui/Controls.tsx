@@ -23,7 +23,21 @@ export function Controls(): JSX.Element | null {
   function onStartNext()    { dispatch({ type: 'START', now: Date.now() }); }
   function onPause()        { dispatch({ type: 'PAUSE', now: Date.now() }); }
   function onResume()       { dispatch({ type: 'RESUME', now: Date.now() }); }
-  function onEndSession()   { dispatch({ type: 'END_SESSION' }); }
+  function onEndSession() {
+    // F-08: if reflection is on AND a work-bearing period actually ran
+    // this session, route through the session-reflection prompt first.
+    // Otherwise fall back to the plain END_SESSION reset.
+    const workRan =
+      (state.mode === 'pomodoro' && (state.pomodoro?.workCount ?? 0) > 0) ||
+      (state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work' && state.status !== 'idle') ||
+      (state.mode === 'timer' && state.status !== 'idle') ||
+      (state.mode === 'freestyle' && state.freestyle !== null);
+    if (settings.reflection_enabled && workRan) {
+      dispatch({ type: 'END_SESSION_WITH_REFLECTION' });
+    } else {
+      dispatch({ type: 'END_SESSION' });
+    }
+  }
   function onEndWork()      { dispatch({ type: 'FREESTYLE_END_WORK', now: Date.now() }); }
   function onSkip() {
     // Phase 2 mid-fix: replaces "Abandon" (which reset to idle without
@@ -39,6 +53,10 @@ export function Controls(): JSX.Element | null {
 
   const btn = 'px-6 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
   const primary = 'px-6 py-2 rounded bg-accent text-bg-primary hover:opacity-90 font-semibold';
+
+  // F-07 / F-08: While the reflection modal is open, hide the standard
+  // controls — the modal owns the action surface (Submit / Skip).
+  if (state.status === 'reflecting') return null;
 
   // C-09: While Freestyle has a prompt active (target_reached / break_choice),
   // hide the standard controls — the prompt overlay owns the choices.

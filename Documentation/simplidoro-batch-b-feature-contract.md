@@ -523,6 +523,29 @@ C-13: F-03 Freestyle target-duration source (C-09 amendment). The
       is now read-only for Freestyle); the target toggle remains as a
       per-session UI choice on the TimerState.
 
+C-14: timer_sessions infrastructure lands in Phase 3 (migration 009 +
+      POST/PATCH /api/sessions + TimerContext wiring) ahead of the
+      F-23 session resume UI. F-23 client surface is deferred to a
+      later phase; the timer_sessions schema is populated in full now
+      (including is_interrupted / interrupted_at) so no later ALTER
+      is needed. Reflections (migration 004) FK to timer_sessions on
+      session_id.
+
+C-15: F-07 / F-02 clarification on per-segment timer editing in
+      Pomodoro. settings.work_duration is INTEGER minutes only. When
+      the user clicks the seconds segment in idle Pomodoro and enters
+      a non-zero seconds portion (e.g. 26:24), the value drops through
+      to a per-session SET_DURATION dispatch instead of persisting to
+      settings — the per-session totalMs accepts seconds. Only whole-
+      minute edits (cappedSec % 60 === 0) persist to
+      settings.work_duration. Resolves Phase 2 mid-fix B4.
+
+C-16: F-11 / F-12 split. Phase 3 ships F-11 (per-user custom prompt
+      text via custom_prompts table + Settings → Reflection group
+      editor) without F-12 (reset to defaults). The Settings UI has
+      no reset button this phase. F-12 deferred to Phase 3.5 alongside
+      F-10 reflection log viewer.
+
 ---
 
 ## SECTION 6 (CONTINUED): DETAILED FEATURE SPECIFICATIONS

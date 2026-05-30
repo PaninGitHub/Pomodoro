@@ -1,5 +1,6 @@
 import type postgres from 'postgres';
 import type { User } from '../types/db';
+import { ALL_PROMPT_KEYS, DEFAULT_PROMPTS } from '../config/reflectionPrompts';
 
 export interface GoogleProfile {
   id: string;
@@ -37,6 +38,16 @@ export async function upsertUserFromGoogleProfile(
 
       // Default settings row — all column defaults from migration 007 apply.
       await tx`INSERT INTO settings (user_id) VALUES (${row.id})`;
+
+      // Default reflection prompts — one row per known key (F-11). Stays
+      // in the same tx so a settings-or-prompts failure rolls back the
+      // user row. Migration 008 has the back-fill for pre-Phase-3 users.
+      for (const key of ALL_PROMPT_KEYS) {
+        await tx`
+          INSERT INTO custom_prompts (user_id, prompt_key, prompt_text)
+          VALUES (${row.id}, ${key}, ${DEFAULT_PROMPTS[key]})
+        `;
+      }
       return row;
     }
 

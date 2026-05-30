@@ -8,6 +8,7 @@ import { CustomizableAdjustButton } from '../timer/ui/CustomizableAdjustButton';
 import { TwoTabBanner } from '../timer/ui/TwoTabBanner';
 import { TimerActionBar } from '../timer/ui/TimerActionBar';
 import { FreestylePromptOverlay } from '../timer/ui/FreestylePromptOverlay';
+import { ReflectionModal } from '../reflections/ReflectionModal';
 import { useVisibilityChange } from '../timer/hooks/useVisibilityChange';
 import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
@@ -56,11 +57,44 @@ export function TimerArea(): JSX.Element {
         repeats: settings.alarm_repeats,
         fireNotification: settings.browser_notifications,
       });
-      // C-06 predicate
+
+      // C-06 predicate — Pomodoro work period finishing with all tasks
+      // checked off ends the session instead of advancing to a break.
       const justFinishedWork =
         state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work';
       const allTasksComplete = tasks.length > 0 && tasks.every((t) => t.is_complete);
-      if (justFinishedWork && allTasksComplete) {
+      const sessionEnding = justFinishedWork && allTasksComplete;
+
+      // Compute next-period kind for the reflection dispatch (the reducer's
+      // REFLECTION_SUBMITTED case reads it to know what to queue next).
+      // Pomodoro: work -> short/long break, break -> work, sessionEnding -> end.
+      // Timer mode: always session_end (single work period per session).
+      let nextKind: 'short_break' | 'long_break' | 'work' | 'session_end' = 'work';
+      if (state.mode === 'pomodoro' && state.pomodoro) {
+        if (sessionEnding) {
+          nextKind = 'session_end';
+        } else if (state.pomodoro.periodType === 'work') {
+          const nextWorkCount = state.pomodoro.workCount + 1;
+          const isLong =
+            state.pomodoroLongBreakEvery > 0 &&
+            nextWorkCount % state.pomodoroLongBreakEvery === 0;
+          nextKind = isLong ? 'long_break' : 'short_break';
+        } else {
+          nextKind = 'work';
+        }
+      } else if (state.mode === 'timer') {
+        nextKind = 'session_end';
+      }
+
+      // Reflection fires on work-period ends only (per F-07). Break ends
+      // go straight to PERIOD_COMPLETE.
+      const isWorkPeriodEnd =
+        state.mode === 'timer' ||
+        (state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work');
+
+      if (settings.reflection_enabled && isWorkPeriodEnd) {
+        dispatch({ type: 'WORK_PERIOD_DONE', now: Date.now(), nextPeriodKind: nextKind });
+      } else if (sessionEnding) {
         dispatch({ type: 'END_SESSION' });
       } else {
         dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
@@ -73,6 +107,7 @@ export function TimerArea(): JSX.Element {
     settings.alarm_volume,
     settings.alarm_repeats,
     settings.browser_notifications,
+    settings.reflection_enabled,
     tasks,
   ]);
 
@@ -89,6 +124,7 @@ export function TimerArea(): JSX.Element {
   // Pomodoro auto-start: after PERIOD_COMPLETE prepares the next period,
   // start it automatically if the matching toggle is on.
   useEffect(() => {
+    if (state.status === 'reflecting') return; // reflection blocks auto-start (F-07)
     if (state.mode !== 'pomodoro') return;
     if (state.status !== 'completed') return;
     if (!state.pomodoro) return;
@@ -135,6 +171,7 @@ export function TimerArea(): JSX.Element {
       {showAdjust && <CustomizableAdjustButton onAdjust={adjustDuration} step={settings.timer_adjust_step_minutes} />}
       <Controls />
       <FreestylePromptOverlay />
+      <ReflectionModal />
       <TimerActionBar />
       <TodoList />
     </div>

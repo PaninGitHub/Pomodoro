@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Numeric settings input that can be CLEARED during typing without
@@ -32,15 +32,16 @@ export function NumericInput({
   onSave, className, ariaLabel, disabled,
 }: Props): JSX.Element {
   const [raw, setRaw] = useState<string>(String(value));
+  const isFocusedRef = useRef(false);
 
-  // Re-mirror external value when settings change (e.g. server sync,
-  // settings live-sync, validation revert). Skip the re-mirror while
-  // the input is focused so we don't snap raw out from under the user.
+  // Re-mirror external value when settings change (server sync, login,
+  // live-sync) — but NOT while the user is actively typing in this input.
+  // (Phase 2 mid-fix B3: the previous data-numeric-id attribute was
+  // never set on the input, so the guard always evaluated false and
+  // the effect clobbered every keystroke.)
   useEffect(() => {
-    if (document.activeElement?.getAttribute('data-numeric-id') !== String(value) + className) {
-      setRaw(String(value));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (isFocusedRef.current) return;
+    setRaw(String(value));
   }, [value]);
 
   function commit() {
@@ -70,7 +71,11 @@ export function NumericInput({
         step={step ?? (integer ? 1 : 'any')}
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        onBlur={commit}
+        onFocus={() => { isFocusedRef.current = true; }}
+        onBlur={() => {
+          isFocusedRef.current = false;
+          commit();
+        }}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         aria-label={ariaLabel}
         disabled={disabled}

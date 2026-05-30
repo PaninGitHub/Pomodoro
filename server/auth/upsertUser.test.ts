@@ -107,4 +107,40 @@ describe.skipIf(SKIP)('upsertUserFromGoogleProfile', () => {
     `;
     expect(rows[0]?.n).toBe(1);
   });
+
+  it('seeds all 8 default custom_prompts on first login', async () => {
+    const fresh: GoogleProfile = {
+      id: 'g-777',
+      emails: [{ value: 'seven@x.com' }],
+      displayName: 'Seven',
+      photos: [],
+    };
+    const user = await upsertUserFromGoogleProfile(sql, fresh);
+    const rows = await sql<{ prompt_key: string; prompt_text: string }[]>`
+      SELECT prompt_key, prompt_text FROM custom_prompts
+      WHERE user_id = ${user.id} ORDER BY prompt_key
+    `;
+    expect(rows.length).toBe(8);
+    expect(rows.map((r) => r.prompt_key)).toEqual([
+      'accomplishment', 'did_well', 'do_better', 'do_differently',
+      'hindrance_detail', 'hindrance_options', 'obstacle', 'task_structure_note',
+    ]);
+    expect(rows.find((r) => r.prompt_key === 'did_well')?.prompt_text).toBe('What did you do well?');
+  });
+
+  it('subsequent login does NOT duplicate custom_prompts rows', async () => {
+    const twice: GoogleProfile = {
+      id: 'g-888',
+      emails: [{ value: 'eight@x.com' }],
+      displayName: 'Eight',
+      photos: [],
+    };
+    await upsertUserFromGoogleProfile(sql, twice);
+    await upsertUserFromGoogleProfile(sql, twice);
+    const rows = await sql<{ n: number }[]>`
+      SELECT COUNT(*)::int AS n FROM custom_prompts
+      WHERE user_id IN (SELECT id FROM users WHERE google_id = ${twice.id})
+    `;
+    expect(rows[0]?.n).toBe(8);
+  });
 });
