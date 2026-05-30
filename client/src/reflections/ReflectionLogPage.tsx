@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useReflectionsList } from './useReflectionsList';
 import { useReflectionPrompts } from './useReflectionPrompts';
+import { useSettings } from '../settings/useSettings';
+import { groupByDay, groupByWeek, groupByMonth } from './grouping';
 import {
   PER_PERIOD_KEYS,
   SESSION_KEYS,
@@ -8,48 +10,54 @@ import {
 } from '../config/reflection-prompts.config';
 import type { ReflectionFilters, ReflectionRow } from './reflectionTypes';
 
-// Group a flat reflections list by YYYY-MM-DD (local) for display.
-// Returns an array of { dateKey, label, items } preserving newest-first
-// ordering: the server already returns newest-first, so iteration order
-// matches it.
-interface DayGroup {
-  dateKey: string;
-  label: string;
-  items: ReflectionRow[];
-}
-function groupByDay(rows: ReflectionRow[]): DayGroup[] {
-  const groups: DayGroup[] = [];
-  const seen = new Map<string, DayGroup>();
-  for (const r of rows) {
-    const d = new Date(r.created_at);
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    let group = seen.get(dateKey);
-    if (!group) {
-      const label = d.toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      });
-      group = { dateKey, label, items: [] };
-      seen.set(dateKey, group);
-      groups.push(group);
-    }
-    group.items.push(r);
-  }
-  return groups;
-}
+type View = 'day' | 'week' | 'month';
+
+const inputCls =
+  'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary text-sm';
 
 export function ReflectionLogPage(): JSX.Element {
-  // Filters live in local state; C4 will wire the filter bar UI to setFilters.
-  // Empty object = "all reflections, newest first".
-  const [filters] = useState<ReflectionFilters>({});
+  const { settings } = useSettings();
+  const [filters, setFilters] = useState<ReflectionFilters>({});
+  const [view, setView] = useState<View>('day');
   const { reflections, loading, error, refetch } = useReflectionsList(filters);
-  const groups = useMemo(() => groupByDay(reflections), [reflections]);
+
+  const groups = useMemo(() => {
+    if (view === 'week') return groupByWeek(reflections, settings.week_start);
+    if (view === 'month') return groupByMonth(reflections);
+    return groupByDay(reflections);
+  }, [reflections, view, settings.week_start]);
+
+  const hasActiveFilter =
+    !!filters.from || !!filters.to || filters.focus_rating !== undefined || !!filters.task_name;
+
+  function clearFilters() {
+    setFilters({});
+  }
+
+  function updateFilter<K extends keyof ReflectionFilters>(key: K, value: ReflectionFilters[K]) {
+    setFilters((prev) => {
+      const next = { ...prev };
+      if (value === undefined || value === '' || value === null) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4 md:p-8 flex flex-col gap-6">
       <h2 className="text-2xl text-text-primary">Reflections</h2>
+
+      <FilterBar
+        filters={filters}
+        hasActiveFilter={hasActiveFilter}
+        view={view}
+        onView={setView}
+        onClear={clearFilters}
+        onUpdate={updateFilter}
+      />
 
       {loading && (
         <p className="text-sm text-text-secondary italic">Loading reflections…</p>
@@ -70,12 +78,14 @@ export function ReflectionLogPage(): JSX.Element {
 
       {!loading && !error && groups.length === 0 && (
         <p className="text-sm text-text-secondary italic">
-          No reflections yet. Start a Pomodoro and submit a reflection to see it here.
+          {hasActiveFilter
+            ? 'No reflections match the current filters.'
+            : 'No reflections yet. Start a Pomodoro and submit a reflection to see it here.'}
         </p>
       )}
 
       {groups.map((g) => (
-        <section key={g.dateKey} className="flex flex-col gap-3">
+        <section key={g.key} className="flex flex-col gap-3">
           <h3 className="text-sm uppercase tracking-widest text-text-secondary border-b border-border pb-1">
             {g.label}
           </h3>
@@ -88,23 +98,121 @@ export function ReflectionLogPage(): JSX.Element {
   );
 }
 
-// Inline card. C5's edit modal will live here on Edit click; the read-only
-// shape is everything visible to the user in the list view.
+// ===========================================================================
+// FilterBar
+// ===========================================================================
+
+interface FilterBarProps {
+  filters: ReflectionFilters;
+  hasActiveFilter: boolean;
+  view: View;
+  onView: (v: View) => void;
+  onClear: () => void;
+  onUpdate: <K extends keyof ReflectionFilters>(key: K, value: ReflectionFilters[K]) => void;
+}
+
+function FilterBar({
+  filters,
+  hasActiveFilter,
+  view,
+  onView,
+  onClear,
+  onUpdate,
+}: FilterBarProps): JSX.Element {
+  return (
+    <div className="bg-bg-secondary/30 border border-border rounded p-3 flex flex-col gap-3">
+      <div className="flex items-center gap-2 flex-wrap text-xs text-text-secondary">
+        <span className="uppercase tracking-widest">Group by</span>
+        {(['day', 'week', 'month'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onView(v)}
+            aria-pressed={view === v}
+            className={`px-3 py-1 rounded border text-xs uppercase tracking-widest ${
+              view === v ? 'border-accent text-accent' : 'border-border text-text-secondary'
+            }`}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-2 text-xs text-text-secondary">
+          From
+          <input
+            type="date"
+            value={filters.from ?? ''}
+            onChange={(e) => onUpdate('from', e.target.value || undefined)}
+            className={inputCls}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-text-secondary">
+          To
+          <input
+            type="date"
+            value={filters.to ?? ''}
+            onChange={(e) => onUpdate('to', e.target.value || undefined)}
+            className={inputCls}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-text-secondary">
+          Focus
+          <select
+            value={filters.focus_rating ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              onUpdate('focus_rating', v === '' ? undefined : (Number(v) as 1 | 2 | 3 | 4));
+            }}
+            className={inputCls}
+          >
+            <option value="">Any</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-text-secondary flex-1 min-w-[180px]">
+          Task contains
+          <input
+            type="text"
+            value={filters.task_name ?? ''}
+            onChange={(e) => onUpdate('task_name', e.target.value || undefined)}
+            placeholder="e.g. read"
+            className={`${inputCls} flex-1`}
+          />
+        </label>
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="px-3 py-1 text-xs rounded border border-border text-text-secondary hover:bg-bg-secondary"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// ReflectionCard (read-only — C5 adds the Edit button)
+// ===========================================================================
+
 function ReflectionCard({ reflection }: { reflection: ReflectionRow }): JSX.Element {
   const { prompts } = useReflectionPrompts();
   const created = new Date(reflection.created_at);
   const time = created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
-  // Per_period entries get a left-border accent; session entries get a
-  // distinct heading + a thicker accent so they're visually distinct in
-  // the list (per spec acceptance criterion).
   const isSession = reflection.type === 'session';
   const accent = isSession ? 'border-l-4 border-accent' : 'border-l-2 border-text-secondary';
   const heading = isSession
     ? 'Session reflection'
     : `Period ${reflection.period_number ?? '?'} reflection`;
 
-  // Render only ANSWERED prompts — NULL/missing fields are omitted per spec.
   const answers = reflection.answers ?? {};
   const orderedKeys = isSession ? SESSION_KEYS : PER_PERIOD_KEYS;
   const answered = orderedKeys.filter((k) => {
