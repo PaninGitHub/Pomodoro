@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type postgres from 'postgres';
 import { requireAuth } from '../middleware/requireAuth';
-import { validateCreateReflection } from '../utils/validateReflection';
+import { parseUuid } from '../utils/parseUuid';
+import { validateCreateReflection, validateUpdateReflection } from '../utils/validateReflection';
 import type { PublicReflection } from '../types/db';
 
 function getUserId(req: Request): string {
@@ -110,10 +111,51 @@ function listReflectionsHandler(sql: postgres.Sql) {
   };
 }
 
-function patchReflectionHandler() {
-  // F-10 edit stub (Phase 3.5).
-  return async (_req: Request, res: Response): Promise<void> => {
-    res.status(501).json({ error: 'Reflection editing is not available yet.' });
+function patchReflectionHandler(sql: postgres.Sql) {
+  // F-10 edit: allows changing focus_rating, answers, tasks_snapshot on
+  // a past entry. type / period_number / session_id stay immutable —
+  // changing them would mean it's a different entry, not an edit.
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = getUserId(req);
+      const idResult = parseUuid(req.params.id);
+      if (!idResult.ok) {
+        res.status(400).json({ error: 'Invalid reflection ID.' });
+        return;
+      }
+      const v = validateUpdateReflection(req.body);
+      if (!v.ok) {
+        res.status(400).json({ error: v.error });
+        return;
+      }
+
+      // postgres.js sql() helper takes an object for dynamic SET. JSONB
+      // columns need an explicit sql.json() wrapper (same any-cast pattern
+      // as createReflectionHandler — runtime is validated JSON).
+      const fields: Record<string, unknown> = { updated_at: new Date() };
+      if (v.value.focus_rating !== undefined) fields.focus_rating = v.value.focus_rating;
+      if (v.value.answers !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fields.answers = sql.json(v.value.answers as any);
+      }
+      if (v.value.tasks_snapshot !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fields.tasks_snapshot = sql.json(v.value.tasks_snapshot as any);
+      }
+
+      const updated = await sql<PublicReflection[]>`
+        UPDATE reflections SET ${sql(fields)}
+        WHERE id = ${idResult.value} AND user_id = ${userId}
+        RETURNING id, session_id, type, period_number, focus_rating, answers, tasks_snapshot, created_at
+      `;
+      if (updated.length === 0) {
+        res.status(404).json({ error: 'Reflection not found.' });
+        return;
+      }
+      res.status(200).json({ reflection: updated[0] });
+    } catch (err) {
+      next(err);
+    }
   };
 }
 
@@ -122,6 +164,6 @@ export function buildReflectionsRouter(sql: postgres.Sql): Router {
   router.use(requireAuth);
   router.post('/', createReflectionHandler(sql));
   router.get('/', listReflectionsHandler(sql));
-  router.patch('/:id', patchReflectionHandler());
+  router.patch('/:id', patchReflectionHandler(sql));
   return router;
 }

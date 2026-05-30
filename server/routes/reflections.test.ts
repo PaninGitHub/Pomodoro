@@ -231,11 +231,77 @@ describe.skipIf(SKIP)('Reflections endpoints', () => {
     });
   });
 
-  describe('PATCH /api/reflections/:id (F-10 stub)', () => {
-    it('returns 501 Not Implemented', async () => {
+  describe('PATCH /api/reflections/:id (F-10)', () => {
+    it('updates focus_rating + answers + tasks_snapshot', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO reflections (user_id, session_id, type, period_number, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdA}, ${sessionIdA}, 'per_period', 1, 2, '{"did_well":"original"}'::jsonb, '[]'::jsonb)
+        RETURNING id
+      `;
       const app = buildApp(sql, userIdA);
-      const res = await request(app).patch('/api/reflections/00000000-0000-0000-0000-000000000000').send({});
-      expect(res.status).toBe(501);
+      const res = await request(app)
+        .patch(`/api/reflections/${row!.id}`)
+        .send({
+          focus_rating: 4,
+          answers: { did_well: 'updated', do_better: 'more reps' },
+          tasks_snapshot: [{
+            task_id: '11111111-1111-1111-1111-111111111111',
+            name: 'Edited task',
+            is_complete: true,
+            added_during_period: false,
+          }],
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.reflection.focus_rating).toBe(4);
+      expect(res.body.reflection.answers.did_well).toBe('updated');
+      expect(res.body.reflection.tasks_snapshot[0].name).toBe('Edited task');
+    });
+
+    it('400 on malformed UUID', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch('/api/reflections/not-a-uuid').send({ focus_rating: 4 });
+      expect(res.status).toBe(400);
+    });
+
+    it('400 on empty body', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb)
+        RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch(`/api/reflections/${row!.id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('400 on out-of-range focus_rating', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb)
+        RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch(`/api/reflections/${row!.id}`).send({ focus_rating: 7 });
+      expect(res.status).toBe(400);
+    });
+
+    it('404 when reflection belongs to another user', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdB}, ${sessionIdB}, 'session', 3, '{}'::jsonb, '[]'::jsonb)
+        RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch(`/api/reflections/${row!.id}`).send({ focus_rating: 4 });
+      expect(res.status).toBe(404);
+    });
+
+    it('401 without auth', async () => {
+      const app = buildApp(sql, null);
+      const res = await request(app)
+        .patch('/api/reflections/00000000-0000-0000-0000-000000000000')
+        .send({ focus_rating: 4 });
+      expect(res.status).toBe(401);
     });
   });
 });
