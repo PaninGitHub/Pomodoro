@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRemaining, formatTime, computeElapsed } from './timerMath';
+import { computeRemaining, formatTime, computeElapsed, formatRemaining, formatElapsed } from './timerMath';
 
 describe('computeRemaining', () => {
   it('returns totalMs when no time elapsed', () => {
@@ -42,5 +42,30 @@ describe('formatTime', () => {
   });
   it('formats 0 as 00:00', () => {
     expect(formatTime(0)).toBe('00:00');
+  });
+});
+
+describe('formatRemaining (countdown — Math.ceil)', () => {
+  it('rounds 999ms up to 00:01', () => {
+    expect(formatRemaining(999)).toBe('00:01');
+  });
+  it('renders 0ms as 00:00', () => {
+    expect(formatRemaining(0)).toBe('00:00');
+  });
+  it('matches legacy formatTime for whole-second inputs', () => {
+    expect(formatRemaining(125_000)).toBe('02:05');
+  });
+});
+
+describe('formatElapsed (count-up — Math.floor)', () => {
+  it('renders the first sub-second as 00:00 (B2 fix)', () => {
+    expect(formatElapsed(1)).toBe('00:00');
+    expect(formatElapsed(999)).toBe('00:00');
+  });
+  it('renders exactly 1000ms as 00:01', () => {
+    expect(formatElapsed(1000)).toBe('00:01');
+  });
+  it('renders elapsed past an hour with HH:MM:SS', () => {
+    expect(formatElapsed(3_661_000)).toBe('01:01:01');
   });
 });
