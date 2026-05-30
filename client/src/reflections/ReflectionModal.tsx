@@ -135,10 +135,16 @@ function PerPeriodVariant(): JSX.Element {
               })}
             </div>
             {hindrances.includes('Distractions') && (
-              <FreeText label={prompts.hindrance_detail} value={hindranceDetail} onChange={setHindranceDetail} />
+              <div className="flex flex-col gap-1 pl-3 border-l-2 border-accent/40">
+                <span className="text-xs uppercase tracking-widest text-text-secondary">For: Distractions</span>
+                <FreeText label={prompts.hindrance_detail} value={hindranceDetail} onChange={setHindranceDetail} />
+              </div>
             )}
             {hindrances.includes('Unclear Tasks') && (
-              <FreeText label={prompts.task_structure_note} value={taskStructure} onChange={setTaskStructure} />
+              <div className="flex flex-col gap-1 pl-3 border-l-2 border-accent/40">
+                <span className="text-xs uppercase tracking-widest text-text-secondary">For: Unclear Tasks</span>
+                <FreeText label={prompts.task_structure_note} value={taskStructure} onChange={setTaskStructure} />
+              </div>
             )}
           </section>
         )}
