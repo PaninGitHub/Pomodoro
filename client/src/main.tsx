@@ -4,6 +4,7 @@ import './index.css';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
 import { SettingsProvider } from './settings/SettingsContext';
+import { ReflectionPromptsProvider } from './reflections/ReflectionContext';
 import { TasksProvider } from './tasks/TasksContext';
 import { TimerProvider } from './timer/state/TimerContext';
 
@@ -14,11 +15,13 @@ createRoot(rootEl).render(
   <StrictMode>
     <AuthProvider>
       <SettingsProvider>
-        <TasksProvider>
-          <TimerProvider>
-            <App />
-          </TimerProvider>
-        </TasksProvider>
+        <ReflectionPromptsProvider>
+          <TasksProvider>
+            <TimerProvider>
+              <App />
+            </TimerProvider>
+          </TasksProvider>
+        </ReflectionPromptsProvider>
       </SettingsProvider>
     </AuthProvider>
   </StrictMode>
