@@ -58,6 +58,7 @@ export interface Settings {
   freestyle_breaks_enabled: boolean;
   show_avatar: boolean;
   freestyle_target_minutes: number;
+  show_hours: boolean;
   updated_at: Date;
 }
 

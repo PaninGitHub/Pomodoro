@@ -5,14 +5,14 @@ import { validatePartialSettings } from '../utils/validateSettings';
 import type { PublicSettings } from '../types/db';
 
 // Column list mirrors server/types/db.ts PublicSettings exactly.
-// Update both when a new column is added (last touched: migration 012).
+// Update both when a new column is added (last touched: migration 013).
 const PUBLIC_COLUMNS = `
   work_duration, short_break_duration, long_break_duration, long_break_frequency,
   auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
   alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
   reflection_enabled, music_autoplay, music_volume, last_sound_selected,
   break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-  freestyle_breaks_enabled, show_avatar, freestyle_target_minutes
+  freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours
 `;
 
 function getUserId(req: Request): string {
@@ -24,28 +24,28 @@ function getSettingsHandler(sql: postgres.Sql) {
     try {
       const userId = getUserId(req);
       // Column list mirrors server/types/db.ts PublicSettings exactly.
-      // Update both when a new column is added (last touched: migration 012).
+      // Update both when a new column is added (last touched: migration 013).
       let rows = await sql<PublicSettings[]>`
         SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes
+               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours
         FROM settings WHERE user_id = ${userId}
       `;
       if (rows.length === 0) {
         // Lazy-create: settings should exist (upsertUser seeds), but be defensive.
         await sql`INSERT INTO settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
         // Column list mirrors server/types/db.ts PublicSettings exactly.
-        // Update both when a new column is added (last touched: migration 012).
+        // Update both when a new column is added (last touched: migration 013).
         rows = await sql<PublicSettings[]>`
           SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                  auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                  alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                  reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                  break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-                 freestyle_breaks_enabled, show_avatar, freestyle_target_minutes
+                 freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours
           FROM settings WHERE user_id = ${userId}
         `;
       }
@@ -73,14 +73,14 @@ function patchSettingsHandler(sql: postgres.Sql) {
         UPDATE settings SET ${sql(fields)} WHERE user_id = ${userId}
       `;
       // Column list mirrors server/types/db.ts PublicSettings exactly.
-      // Update both when a new column is added (last touched: migration 012).
+      // Update both when a new column is added (last touched: migration 013).
       const rows = await sql<PublicSettings[]>`
         SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes
+               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours
         FROM settings WHERE user_id = ${userId}
       `;
       res.status(200).json({ settings: rows[0] });

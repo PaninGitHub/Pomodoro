@@ -16,6 +16,7 @@ Files are numbered by the table they create, mapped to Batch D §12 sub-sections
 | `010_add_timer_adjust_step.sql`   | (ALTER settings) | n/a     | Phase 2 (user-feedback revision) |
 | `011_add_freestyle_breaks_enabled.sql` | (ALTER settings) | n/a | Phase 2 (Freestyle redesign C-09) |
 | `012_add_avatar_and_freestyle_target.sql` | (ALTER settings) | n/a | Phase 2 (mid-fix: avatar toggle + Freestyle target moved into settings) |
+| `013_add_show_hours.sql`          | (ALTER settings) | n/a     | Phase 3.5 (F1: HH:MM:SS vs MMM:SS timer format toggle) |
 
 **Numbers correspond to the table.** Build phases may run migrations out
 of strict numeric order (Phase 2 runs 003 + 007 but skips 004–006 which

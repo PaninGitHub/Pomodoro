@@ -83,6 +83,7 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   freestyle_breaks_enabled: (v) => boolField(v, 'freestyle_breaks_enabled'),
   show_avatar:              (v) => boolField(v, 'show_avatar'),
   freestyle_target_minutes: (v) => intRange(v, 1, 720, 'freestyle_target_minutes'),
+  show_hours:               (v) => boolField(v, 'show_hours'),
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_VALIDATORS) as (keyof PartialSettings)[];
