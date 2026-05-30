@@ -30,6 +30,34 @@ export function ReflectionSettings(): JSX.Element {
   const { settings, updateSettings } = useSettings();
   const { prompts, refresh } = useReflectionPrompts();
   const isAuth = authState.kind === 'signed_in';
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  async function onResetClick() {
+    // F-12 spec: confirmation dialog before reset executes.
+    const ok = window.confirm(
+      'This will reset all your custom prompts to their original defaults. This cannot be undone.',
+    );
+    if (!ok) return;
+    setResetting(true);
+    setResetError(null);
+    try {
+      const res = await fetch('/api/prompts/reset', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.status !== 200) {
+        setResetError('Could not reset prompts.');
+        return;
+      }
+      await refresh();
+    } catch {
+      setResetError('Server unreachable.');
+    } finally {
+      setResetting(false);
+    }
+  }
 
   return (
     <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
@@ -60,6 +88,22 @@ export function ReflectionSettings(): JSX.Element {
           {SESSION_KEYS.map((k) => (
             <PromptField key={k} promptKey={k} value={prompts[k]} onSaved={refresh} />
           ))}
+
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              type="button"
+              onClick={() => void onResetClick()}
+              disabled={resetting}
+              className="px-3 py-1.5 text-sm rounded border border-border text-text-secondary hover:bg-bg-secondary disabled:opacity-50"
+            >
+              {resetting ? 'Resetting…' : 'Reset prompts to defaults'}
+            </button>
+            {resetError && (
+              <span role="alert" className="text-xs text-error">
+                {resetError}
+              </span>
+            )}
+          </div>
         </>
       )}
     </section>
