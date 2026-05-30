@@ -63,6 +63,16 @@ export function AppearanceSettings(): JSX.Element {
                onChange={(e) => updateSettings({ show_hours: e.target.checked })} />
         Show hours in timer display (HH:MM:SS vs MMM:SS)
       </label>
+
+      <label className={labelCls}>
+        Week starts on
+        <select value={settings.week_start}
+                onChange={(e) => updateSettings({ week_start: e.target.value as 'sunday' | 'monday' })}
+                className={selectCls}>
+          <option value="sunday">Sunday</option>
+          <option value="monday">Monday</option>
+        </select>
+      </label>
     </section>
   );
 }

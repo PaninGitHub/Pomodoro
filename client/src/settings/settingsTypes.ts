@@ -27,11 +27,12 @@ export interface Settings {
   show_avatar: boolean;
   freestyle_target_minutes: number;
   show_hours: boolean;
+  week_start: 'sunday' | 'monday';
 }
 
 export type PartialSettings = Partial<Settings>;
 
-// Defaults must match migrations 007 + 010 + 011 + 012 + 013 exactly.
+// Defaults must match migrations 007 + 010 + 011 + 012 + 013 + 014 exactly.
 export const DEFAULT_SETTINGS: Settings = {
   work_duration: 25,
   short_break_duration: 5,
@@ -59,4 +60,5 @@ export const DEFAULT_SETTINGS: Settings = {
   show_avatar: true,
   freestyle_target_minutes: 25,
   show_hours: true,
+  week_start: 'sunday',
 };
