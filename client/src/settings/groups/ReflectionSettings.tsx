@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/useAuth';
 import { useSettings } from '../useSettings';
 import { useReflectionPrompts } from '../../reflections/useReflectionPrompts';
@@ -77,14 +77,18 @@ function PromptField({
 }): JSX.Element {
   const [raw, setRaw] = useState(value);
   const [error, setError] = useState<string | null>(null);
-  const [focused, setFocused] = useState(false);
+  const isFocusedRef = useRef(false);
 
   // Re-mirror external value updates (login, refresh after another field's
-  // save) into the local raw — but NOT while the user is mid-edit, or the
-  // ReflectionPromptsProvider's refresh would clobber their keystrokes.
+  // save) into the local raw — but NOT while the user is mid-edit. The
+  // guard is a ref (not state) so a focus/blur transition does NOT trigger
+  // the effect: only an actual `value` prop change does. Otherwise blur
+  // would re-run the effect with the stale parent value and clobber the
+  // text the user just typed in the window before refresh completes.
   useEffect(() => {
-    if (!focused) setRaw(value);
-  }, [value, focused]);
+    if (isFocusedRef.current) return;
+    setRaw(value);
+  }, [value]);
 
   async function save() {
     if (raw === value) return;
@@ -123,9 +127,9 @@ function PromptField({
       <textarea
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        onFocus={() => setFocused(true)}
+        onFocus={() => { isFocusedRef.current = true; }}
         onBlur={() => {
-          setFocused(false);
+          isFocusedRef.current = false;
           void save();
         }}
         maxLength={PROMPT_TEXT_MAX}
