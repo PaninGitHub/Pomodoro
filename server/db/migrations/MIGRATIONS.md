@@ -12,7 +12,7 @@ Files are numbered by the table they create, mapped to Batch D §12 sub-sections
 | `006_create_break_logs.sql`       | break_logs       | §12.9   | Phase 4     |
 | `007_create_settings.sql`         | settings         | §12.4   | Phase 2     |
 | `008_create_custom_prompts.sql`   | custom_prompts   | §12.10  | Phase 3     |
-| `009_create_timer_sessions.sql`   | timer_sessions   | §12.7   | Phase 3     |
+| `009_create_timer_sessions.sql`   | timer_sessions   | §12.7   | Phase 3 (reflections prerequisite) |
 | `010_add_timer_adjust_step.sql`   | (ALTER settings) | n/a     | Phase 2 (user-feedback revision) |
 | `011_add_freestyle_breaks_enabled.sql` | (ALTER settings) | n/a | Phase 2 (Freestyle redesign C-09) |
 | `012_add_avatar_and_freestyle_target.sql` | (ALTER settings) | n/a | Phase 2 (mid-fix: avatar toggle + Freestyle target moved into settings) |
