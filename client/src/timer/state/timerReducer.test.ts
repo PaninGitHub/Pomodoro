@@ -420,3 +420,40 @@ describe('timerReducer — SET_POMODORO_DURATIONS live-syncs idle Pomodoro displ
     expect(s.totalMs).toBe(initialTimerState.totalMs);
   });
 });
+
+describe('timerReducer — currentSessionId (Phase 3 Rollout 2)', () => {
+  it('initialTimerState has currentSessionId: null', () => {
+    expect(initialTimerState.currentSessionId).toBeNull();
+  });
+
+  it('SET_SESSION_ID sets the value', () => {
+    const s = timerReducer(initialTimerState, { type: 'SET_SESSION_ID', sessionId: 'abc-123' });
+    expect(s.currentSessionId).toBe('abc-123');
+  });
+
+  it('SET_SESSION_ID with null clears it', () => {
+    const withId: TimerState = { ...initialTimerState, currentSessionId: 'abc-123' };
+    const s = timerReducer(withId, { type: 'SET_SESSION_ID', sessionId: null });
+    expect(s.currentSessionId).toBeNull();
+  });
+
+  it('END_SESSION clears currentSessionId', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'running',
+      currentSessionId: 'abc-123',
+    };
+    const s = timerReducer(live, { type: 'END_SESSION' });
+    expect(s.currentSessionId).toBeNull();
+  });
+
+  it('ABANDON clears currentSessionId', () => {
+    const live: TimerState = {
+      ...initialTimerState,
+      status: 'running',
+      currentSessionId: 'abc-123',
+    };
+    const s = timerReducer(live, { type: 'ABANDON' });
+    expect(s.currentSessionId).toBeNull();
+  });
+});

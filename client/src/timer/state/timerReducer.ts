@@ -58,6 +58,10 @@ export interface TimerState {
   // Pomodoro reads from pomodoroWorkMs; Freestyle idle is always 0
   // (stopwatch); Timer needs its own slot since no setting backs it.
   timerDurationMs: number;
+  // Live timer_sessions row id for the active session, or null for guests
+  // / pre-START. Set by TimerContext effect after POST /api/sessions
+  // resolves; cleared on END_SESSION / ABANDON.
+  currentSessionId: string | null;
 }
 
 export const POMODORO_DEFAULTS = {
@@ -92,6 +96,7 @@ export const initialTimerState: TimerState = {
   freestyleBreaksEnabled: FREESTYLE_DEFAULT_BREAKS_ENABLED,
   freestyleTargetEnabled: true,
   timerDurationMs: DEFAULT_TIMER_MINUTES * 60 * 1000,
+  currentSessionId: null,
 };
 
 export type TimerAction =
@@ -121,7 +126,8 @@ export type TimerAction =
   | { type: 'FREESTYLE_RESET'; now: number }
   | { type: 'FREESTYLE_END_WORK'; now: number }
   | { type: 'FREESTYLE_START_BREAK'; now: number }
-  | { type: 'FREESTYLE_SKIP_BREAK'; now: number };
+  | { type: 'FREESTYLE_SKIP_BREAK'; now: number }
+  | { type: 'SET_SESSION_ID'; sessionId: string | null };
 
 function nextPomodoroPeriod(current: PomodoroState, state: TimerState): {
   periodType: PomodoroPeriodType;
@@ -261,6 +267,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         accumulatedMs: 0,
         pomodoro: null,
         freestyle: null,
+        currentSessionId: null,
       };
     case 'END_SESSION':
       return {
@@ -270,7 +277,10 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         accumulatedMs: 0,
         pomodoro: null,
         freestyle: null,
+        currentSessionId: null,
       };
+    case 'SET_SESSION_ID':
+      return { ...state, currentSessionId: action.sessionId };
 
     // ============================================================
     // Freestyle-specific (C-09)
