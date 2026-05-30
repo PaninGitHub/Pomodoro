@@ -40,15 +40,11 @@ export function Controls(): JSX.Element | null {
   }
   function onEndWork()      { dispatch({ type: 'FREESTYLE_END_WORK', now: Date.now() }); }
   function onSkip() {
-    // Phase 2 mid-fix: replaces "Abandon" (which reset to idle without
-    // advancing). Skip now advances to the next period in Pomodoro, and
-    // ends the session in Timer. Freestyle hides the Skip button entirely
-    // (use End Work + the break-choice prompt for per-period control).
-    if (state.mode === 'pomodoro') {
-      dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
-    } else if (state.mode === 'timer') {
-      dispatch({ type: 'END_SESSION' });
-    }
+    // Pomodoro-only. Phase 3.5 F5: Skip was previously available in Timer
+    // mode too but its behavior was identical to End Session sitting right
+    // next to it, so it was removed. Freestyle uses End Work + the break-
+    // choice prompt for per-period control and never showed Skip.
+    dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
   }
 
   const btn = 'px-6 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
@@ -111,7 +107,7 @@ export function Controls(): JSX.Element | null {
       {isFreestyleWork && (
         <button type="button" onClick={onEndWork} className={btn}>End Work</button>
       )}
-      {state.mode !== 'freestyle' && (
+      {state.mode === 'pomodoro' && (
         <button type="button" onClick={onSkip} className={btn}>Skip</button>
       )}
       <button type="button" onClick={onEndSession} className={btn}>End Session</button>
