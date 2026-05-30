@@ -23,9 +23,19 @@ export function Controls(): JSX.Element | null {
   function onStartNext()    { dispatch({ type: 'START', now: Date.now() }); }
   function onPause()        { dispatch({ type: 'PAUSE', now: Date.now() }); }
   function onResume()       { dispatch({ type: 'RESUME', now: Date.now() }); }
-  function onAbandon()      { dispatch({ type: 'ABANDON' }); }
   function onEndSession()   { dispatch({ type: 'END_SESSION' }); }
   function onEndWork()      { dispatch({ type: 'FREESTYLE_END_WORK', now: Date.now() }); }
+  function onSkip() {
+    // Phase 2 mid-fix: replaces "Abandon" (which reset to idle without
+    // advancing). Skip now advances to the next period in Pomodoro, and
+    // ends the session in Timer. Freestyle hides the Skip button entirely
+    // (use End Work + the break-choice prompt for per-period control).
+    if (state.mode === 'pomodoro') {
+      dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
+    } else if (state.mode === 'timer') {
+      dispatch({ type: 'END_SESSION' });
+    }
+  }
 
   const btn = 'px-6 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
   const primary = 'px-6 py-2 rounded bg-accent text-bg-primary hover:opacity-90 font-semibold';
@@ -83,7 +93,9 @@ export function Controls(): JSX.Element | null {
       {isFreestyleWork && (
         <button type="button" onClick={onEndWork} className={btn}>End Work</button>
       )}
-      <button type="button" onClick={onAbandon} className={btn}>Abandon</button>
+      {state.mode !== 'freestyle' && (
+        <button type="button" onClick={onSkip} className={btn}>Skip</button>
+      )}
       <button type="button" onClick={onEndSession} className={btn}>End Session</button>
     </div>
   );
