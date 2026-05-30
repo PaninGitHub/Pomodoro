@@ -226,4 +226,32 @@ describe.skipIf(SKIP)('Tasks endpoints', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe('DELETE /api/tasks (clear all)', () => {
+    it('deletes every task for the authenticated user', async () => {
+      await sql`
+        INSERT INTO tasks (user_id, name, time_estimate, sort_order) VALUES
+        (${userIdA}, 'a1', 5, 0), (${userIdA}, 'a2', 5, 1), (${userIdA}, 'a3', 5, 2)
+      `;
+      await sql`
+        INSERT INTO tasks (user_id, name, time_estimate, sort_order)
+        VALUES (${userIdB}, 'b1', 5, 0)
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).delete('/api/tasks');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true, deleted: 3 });
+      const aRows = await sql`SELECT id FROM tasks WHERE user_id = ${userIdA}`;
+      const bRows = await sql`SELECT id FROM tasks WHERE user_id = ${userIdB}`;
+      expect(aRows.length).toBe(0);
+      expect(bRows.length).toBe(1); // other user's tasks untouched
+    });
+
+    it('returns deleted=0 when the list was already empty', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).delete('/api/tasks');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true, deleted: 0 });
+    });
+  });
 });
