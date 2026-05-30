@@ -117,7 +117,11 @@ export function TimerArea(): JSX.Element {
     }
   }
 
-  const showAdjust = state.status === 'running' || state.status === 'paused';
+  // +/- adjust is Timer/Pomodoro only. Freestyle's elapsed-time stopwatch
+  // (work) and earned-break countdown shouldn't be shifted by a fixed step.
+  const showAdjust =
+    (state.status === 'running' || state.status === 'paused') &&
+    state.mode !== 'freestyle';
 
   return (
     <div className="w-full flex flex-col items-center gap-6 p-4 md:p-8">
