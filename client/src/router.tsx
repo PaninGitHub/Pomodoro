@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
 import { Landing } from './pages/Landing';
+import { SettingsPage } from './pages/SettingsPage';
 
 const router = createBrowserRouter([
   {
@@ -8,6 +9,7 @@ const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <Landing /> },
+      { path: 'settings', element: <SettingsPage /> },
       // Phase 8: { path: 'privacy', element: <Privacy /> }
     ],
   },

@@ -1,16 +1,15 @@
 import { useTimer } from '../state/useTimer';
 
-export function Controls(): JSX.Element {
+export function Controls(): JSX.Element | null {
   const { state, dispatch } = useTimer();
 
   function onStartInitial() {
-    // Pomodoro idle → START_POMODORO (initializes pomodoro state to work/period 1).
-    // Freestyle idle → START_FREESTYLE (snapshots workDurationMs for break/next-work cycle).
-    // Timer idle → plain START.
     if (state.mode === 'pomodoro') {
       dispatch({ type: 'START_POMODORO', now: Date.now() });
     } else if (state.mode === 'freestyle') {
-      dispatch({ type: 'START_FREESTYLE', now: Date.now() });
+      // Per C-09: target is the current totalMs, or 0 when user disabled it.
+      const targetMs = state.freestyleTargetEnabled ? state.totalMs : 0;
+      dispatch({ type: 'START_FREESTYLE', now: Date.now(), targetMs });
     } else {
       dispatch({ type: 'START', now: Date.now() });
     }
@@ -20,17 +19,23 @@ export function Controls(): JSX.Element {
   function onResume()       { dispatch({ type: 'RESUME', now: Date.now() }); }
   function onAbandon()      { dispatch({ type: 'ABANDON' }); }
   function onEndSession()   { dispatch({ type: 'END_SESSION' }); }
+  function onEndWork()      { dispatch({ type: 'FREESTYLE_END_WORK', now: Date.now() }); }
 
   const btn = 'px-6 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
   const primary = 'px-6 py-2 rounded bg-accent text-bg-primary hover:opacity-90 font-semibold';
+
+  // C-09: While Freestyle has a prompt active (target_reached / break_choice),
+  // hide the standard controls — the prompt overlay owns the choices.
+  if (state.mode === 'freestyle' && state.freestyle && state.freestyle.prompt !== 'none') {
+    return null;
+  }
 
   if (state.status === 'idle') {
     return <button type="button" onClick={onStartInitial} className={primary}>Start</button>;
   }
 
   if (state.status === 'completed') {
-    // Pomodoro between periods: the reducer has already prepared the upcoming
-    // period type via PERIOD_COMPLETE. Offer a labeled Start for it.
+    // Pomodoro between periods
     if (state.mode === 'pomodoro' && state.pomodoro) {
       const nextLabel =
         state.pomodoro.periodType === 'work'        ? `Start Work ${state.pomodoro.workCount + 1}`
@@ -43,8 +48,7 @@ export function Controls(): JSX.Element {
         </div>
       );
     }
-    // Freestyle between periods: only reachable after a break completes
-    // (work→break auto-starts). Offer Start to begin the next work period.
+    // Freestyle between periods (after break completed OR Skip Break)
     if (state.mode === 'freestyle' && state.freestyle) {
       return (
         <div className="flex gap-2 items-center flex-wrap justify-center">
@@ -53,9 +57,14 @@ export function Controls(): JSX.Element {
         </div>
       );
     }
-    // Timer mode completed: session-end-only.
+    // Timer mode completed
     return <button type="button" onClick={onEndSession} className={primary}>End Session</button>;
   }
+
+  // running / paused state — Freestyle work has an extra "End Work" button.
+  const isFreestyleWork =
+    state.mode === 'freestyle' &&
+    state.freestyle?.periodType === 'work';
 
   return (
     <div className="flex gap-2 items-center flex-wrap justify-center">
@@ -64,6 +73,9 @@ export function Controls(): JSX.Element {
       )}
       {state.status === 'paused' && (
         <button type="button" onClick={onResume} className={primary}>Resume</button>
+      )}
+      {isFreestyleWork && (
+        <button type="button" onClick={onEndWork} className={btn}>End Work</button>
       )}
       <button type="button" onClick={onAbandon} className={btn}>Abandon</button>
       <button type="button" onClick={onEndSession} className={btn}>End Session</button>

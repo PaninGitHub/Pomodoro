@@ -18,27 +18,36 @@ export async function upsertUserFromGoogleProfile(
   }
   const avatarUrl = profile.photos?.[0]?.value ?? null;
 
-  const existing = await sql<User[]>`
-    SELECT * FROM users WHERE google_id = ${profile.id} LIMIT 1
-  `;
+  // Atomic: user INSERT + settings INSERT happen together (Phase 2).
+  // If settings INSERT fails for any reason, the user INSERT rolls back.
+  return await sql.begin(async (tx) => {
+    const existing = await tx<User[]>`
+      SELECT * FROM users WHERE google_id = ${profile.id} LIMIT 1
+    `;
 
-  if (existing.length === 0) {
-    const inserted = await sql<User[]>`
-      INSERT INTO users (google_id, email, display_name, avatar_url)
-      VALUES (${profile.id}, ${email}, ${profile.displayName}, ${avatarUrl})
+    if (existing.length === 0) {
+      // First login: INSERT user, then INSERT default settings row.
+      const inserted = await tx<User[]>`
+        INSERT INTO users (google_id, email, display_name, avatar_url)
+        VALUES (${profile.id}, ${email}, ${profile.displayName}, ${avatarUrl})
+        RETURNING *
+      `;
+      const row = inserted[0];
+      if (!row) throw new Error('User insert returned no row');
+
+      // Default settings row — all column defaults from migration 007 apply.
+      await tx`INSERT INTO settings (user_id) VALUES (${row.id})`;
+      return row;
+    }
+
+    // Subsequent login: UPDATE last_login_at only. Settings already exist.
+    const updated = await tx<User[]>`
+      UPDATE users SET last_login_at = NOW()
+      WHERE google_id = ${profile.id}
       RETURNING *
     `;
-    const row = inserted[0];
-    if (!row) throw new Error('User insert returned no row');
+    const row = updated[0];
+    if (!row) throw new Error('User update returned no row');
     return row;
-  }
-
-  const updated = await sql<User[]>`
-    UPDATE users SET last_login_at = NOW()
-    WHERE google_id = ${profile.id}
-    RETURNING *
-  `;
-  const row = updated[0];
-  if (!row) throw new Error('User update returned no row');
-  return row;
+  }) as User;
 }

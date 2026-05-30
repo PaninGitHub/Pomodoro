@@ -23,6 +23,7 @@ describe.skipIf(SKIP)('upsertUserFromGoogleProfile', () => {
   });
 
   beforeEach(async () => {
+    // Truncate users; CASCADE wipes dependent settings/tasks rows.
     await sql`TRUNCATE users CASCADE`;
   });
 
@@ -74,5 +75,36 @@ describe.skipIf(SKIP)('upsertUserFromGoogleProfile', () => {
   it('throws if profile has no email', async () => {
     const noEmail: GoogleProfile = { ...profile, emails: [] };
     await expect(upsertUserFromGoogleProfile(sql, noEmail)).rejects.toThrow(/email/i);
+  });
+
+  it('first login also creates a default settings row in the same transaction', async () => {
+    const fresh: GoogleProfile = {
+      id: 'g-newuser-001',
+      emails: [{ value: 'fresh@x.com' }],
+      displayName: 'Fresh',
+      photos: [],
+    };
+    const user = await upsertUserFromGoogleProfile(sql, fresh);
+    const rows = await sql<{ work_duration: number }[]>`
+      SELECT work_duration FROM settings WHERE user_id = ${user.id}
+    `;
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.work_duration).toBe(25); // default per migration 007
+  });
+
+  it('subsequent login does NOT duplicate the settings row', async () => {
+    const twice: GoogleProfile = {
+      id: 'g-twice-001',
+      emails: [{ value: 'twice@x.com' }],
+      displayName: 'Twice',
+      photos: [],
+    };
+    await upsertUserFromGoogleProfile(sql, twice);
+    await upsertUserFromGoogleProfile(sql, twice);
+    const rows = await sql<{ n: number }[]>`
+      SELECT COUNT(*)::int AS n FROM settings
+      WHERE user_id IN (SELECT id FROM users WHERE google_id = ${twice.id})
+    `;
+    expect(rows[0]?.n).toBe(1);
   });
 });

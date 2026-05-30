@@ -1,6 +1,6 @@
 export interface FontDef {
-  key: string;           // stable identifier saved to localStorage
-  family: string;        // CSS font-family value
+  key: string;           // stable identifier
+  family: string;        // CSS font-family value (also stored in settings.font)
   googleParam: string;   // Google Fonts URL family param, e.g. 'Inter:wght@400;600'
 }
 
@@ -15,5 +15,4 @@ export const FONTS: readonly FontDef[] = [
   { key: 'caveat',       family: 'Caveat',       googleParam: 'Caveat:wght@400;600' },
 ] as const;
 
-export const DEFAULT_FONT_KEY = FONTS[0]!.key;
-export const LS_FONT_KEY = 'simplidoro.font';
+export const DEFAULT_FONT_FAMILY = FONTS[0]!.family;

@@ -4,49 +4,31 @@ import userEvent from '@testing-library/user-event';
 import { CustomizableAdjustButton } from './CustomizableAdjustButton';
 
 describe('CustomizableAdjustButton', () => {
-  it('renders +/- pair with default value 1', () => {
-    render(<CustomizableAdjustButton onAdjust={() => {}} />);
-    expect(screen.getByRole('button', { name: /-1 min/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /\+1 min/i })).toBeInTheDocument();
-  });
-
-  it('calls onAdjust with -value when minus is clicked', async () => {
-    const user = userEvent.setup();
-    const onAdjust = vi.fn();
-    render(<CustomizableAdjustButton onAdjust={onAdjust} />);
-    await user.click(screen.getByRole('button', { name: /-1 min/i }));
-    expect(onAdjust).toHaveBeenCalledWith(-1);
-  });
-
-  it('calls onAdjust with +value when plus is clicked', async () => {
-    const user = userEvent.setup();
-    const onAdjust = vi.fn();
-    render(<CustomizableAdjustButton onAdjust={onAdjust} />);
-    await user.click(screen.getByRole('button', { name: /\+1 min/i }));
-    expect(onAdjust).toHaveBeenCalledWith(1);
-  });
-
-  it('double-click opens inline editor; setting value updates both buttons symmetrically', async () => {
-    const user = userEvent.setup();
-    render(<CustomizableAdjustButton onAdjust={() => {}} />);
-    await user.dblClick(screen.getByRole('button', { name: /-1 min/i }));
-    const input = screen.getByRole('spinbutton');
-    await user.clear(input);
-    await user.type(input, '5');
-    await user.keyboard('{Enter}');
+  it('renders -/+ buttons with the given step value', () => {
+    render(<CustomizableAdjustButton onAdjust={() => {}} step={5} />);
     expect(screen.getByRole('button', { name: /-5 min/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+5 min/i })).toBeInTheDocument();
   });
 
-  it('rejects values <= 0', async () => {
+  it('calls onAdjust with -step when minus clicked', async () => {
     const user = userEvent.setup();
-    render(<CustomizableAdjustButton onAdjust={() => {}} />);
-    await user.dblClick(screen.getByRole('button', { name: /\+1 min/i }));
-    const input = screen.getByRole('spinbutton');
-    await user.clear(input);
-    await user.type(input, '0');
-    await user.keyboard('{Enter}');
-    // Value should remain at 1
-    expect(screen.getByRole('button', { name: /\+1 min/i })).toBeInTheDocument();
+    const onAdjust = vi.fn();
+    render(<CustomizableAdjustButton onAdjust={onAdjust} step={5} />);
+    await user.click(screen.getByRole('button', { name: /-5 min/i }));
+    expect(onAdjust).toHaveBeenCalledWith(-5);
+  });
+
+  it('calls onAdjust with +step when plus clicked', async () => {
+    const user = userEvent.setup();
+    const onAdjust = vi.fn();
+    render(<CustomizableAdjustButton onAdjust={onAdjust} step={5} />);
+    await user.click(screen.getByRole('button', { name: /\+5 min/i }));
+    expect(onAdjust).toHaveBeenCalledWith(5);
+  });
+
+  it('respects different step values', () => {
+    render(<CustomizableAdjustButton onAdjust={() => {}} step={10} />);
+    expect(screen.getByRole('button', { name: /-10 min/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\+10 min/i })).toBeInTheDocument();
   });
 });

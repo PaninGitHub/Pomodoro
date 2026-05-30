@@ -10,6 +10,9 @@ import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
 import { buildAuthRouter } from './routes/auth';
+import { buildTasksRouter } from './routes/tasks';
+import { buildSettingsRouter } from './routes/settings';
+import { buildUserRouter } from './routes/user';
 import { configurePassport } from './auth/passport';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -70,6 +73,9 @@ export function buildApp(config: Config, sql: postgres.Sql): Express {
   // 8. routes
   app.use('/api', healthRouter);
   app.use('/api/auth', buildAuthRouter(config));
+  app.use('/api/tasks', buildTasksRouter(sql));
+  app.use('/api/settings', buildSettingsRouter(sql));
+  app.use('/api/user', buildUserRouter(sql));
 
   // 9. error handler — must be last
   app.use(errorHandler);
