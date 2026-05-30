@@ -12,6 +12,7 @@ import { healthRouter } from './routes/health';
 import { buildAuthRouter } from './routes/auth';
 import { buildTasksRouter } from './routes/tasks';
 import { buildSettingsRouter } from './routes/settings';
+import { buildSessionsRouter } from './routes/sessions';
 import { buildUserRouter } from './routes/user';
 import { configurePassport } from './auth/passport';
 
@@ -75,6 +76,7 @@ export function buildApp(config: Config, sql: postgres.Sql): Express {
   app.use('/api/auth', buildAuthRouter(config));
   app.use('/api/tasks', buildTasksRouter(sql));
   app.use('/api/settings', buildSettingsRouter(sql));
+  app.use('/api/sessions', buildSessionsRouter(sql));
   app.use('/api/user', buildUserRouter(sql));
 
   // 9. error handler — must be last

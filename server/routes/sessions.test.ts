@@ -112,4 +112,83 @@ describe.skipIf(SKIP)('Sessions endpoints', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('PATCH /api/sessions/:id', () => {
+    it('updates ended_at + ended_early + periods_completed', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO timer_sessions (user_id, mode)
+        VALUES (${userIdA}, 'pomodoro') RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app)
+        .patch(`/api/sessions/${row!.id}`)
+        .send({
+          ended_at: '2026-05-30T12:00:00Z',
+          ended_early: true,
+          periods_completed: 3,
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.session.id).toBe(row!.id);
+      expect(res.body.session.ended_early).toBe(true);
+      expect(res.body.session.periods_completed).toBe(3);
+      expect(res.body.session.ended_at).toBeTruthy();
+    });
+
+    it('returns PublicSession shape (no is_interrupted / user_id leak)', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO timer_sessions (user_id, mode)
+        VALUES (${userIdA}, 'timer') RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app)
+        .patch(`/api/sessions/${row!.id}`)
+        .send({ total_work_mins: 25 });
+      expect(res.status).toBe(200);
+      expect(res.body.session).not.toHaveProperty('user_id');
+      expect(res.body.session).not.toHaveProperty('is_interrupted');
+      expect(res.body.session).not.toHaveProperty('interrupted_at');
+    });
+
+    it('404 when session belongs to another user', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO timer_sessions (user_id, mode)
+        VALUES (${userIdB}, 'timer') RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app)
+        .patch(`/api/sessions/${row!.id}`)
+        .send({ ended_early: false });
+      expect(res.status).toBe(404);
+    });
+
+    it('400 on malformed UUID', async () => {
+      const app = buildApp(sql, userIdA);
+      const res = await request(app)
+        .patch('/api/sessions/not-a-uuid')
+        .send({ ended_early: false });
+      expect(res.status).toBe(400);
+    });
+
+    it('400 on empty body', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO timer_sessions (user_id, mode)
+        VALUES (${userIdA}, 'pomodoro') RETURNING id
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).patch(`/api/sessions/${row!.id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('401 when not signed in', async () => {
+      const [row] = await sql<{ id: string }[]>`
+        INSERT INTO timer_sessions (user_id, mode)
+        VALUES (${userIdA}, 'pomodoro') RETURNING id
+      `;
+      const app = buildApp(sql, null);
+      const res = await request(app)
+        .patch(`/api/sessions/${row!.id}`)
+        .send({ ended_early: true });
+      expect(res.status).toBe(401);
+    });
+  });
 });
