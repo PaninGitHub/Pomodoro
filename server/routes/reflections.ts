@@ -55,11 +55,58 @@ function createReflectionHandler(sql: postgres.Sql) {
   };
 }
 
-function listReflectionsHandler() {
-  // F-10 stub (Phase 3.5 will implement). Returns empty list so the
-  // future client GET doesn't 404.
-  return async (_req: Request, res: Response): Promise<void> => {
-    res.status(200).json({ reflections: [] });
+function parseIsoDate(v: unknown): Date | null {
+  if (typeof v !== 'string') return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const MAX_REFLECTIONS_PER_REQUEST = 500;
+
+function listReflectionsHandler(sql: postgres.Sql) {
+  // F-10: list user reflections ordered newest-first. Optional query
+  // filters: from (ISO date inclusive), to (ISO date inclusive),
+  // focus_rating (1-4), task_name (case-insensitive substring against
+  // any task name in tasks_snapshot). Returns up to 500 rows — no
+  // pagination in v1 since a single user is very unlikely to exceed
+  // that mid-Phase-3.5; cursor paging is a Phase 4+ optimization.
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = getUserId(req);
+
+      const fromDate = parseIsoDate(req.query.from);
+      const toDate = parseIsoDate(req.query.to);
+      const focusRaw = req.query.focus_rating;
+      const focusRating = typeof focusRaw === 'string' ? Number.parseInt(focusRaw, 10) : NaN;
+      const focusFilter = Number.isInteger(focusRating) && focusRating >= 1 && focusRating <= 4
+        ? focusRating
+        : null;
+      const taskNameRaw = req.query.task_name;
+      const taskName = typeof taskNameRaw === 'string' && taskNameRaw.length > 0
+        ? taskNameRaw
+        : null;
+
+      // Build a single query with conditional WHERE fragments via postgres.js.
+      // The user_id scope is always applied first; the rest are tacked on
+      // only when their filter is set.
+      const rows = await sql<PublicReflection[]>`
+        SELECT id, session_id, type, period_number, focus_rating, answers, tasks_snapshot, created_at
+        FROM reflections
+        WHERE user_id = ${userId}
+          ${fromDate ? sql`AND created_at >= ${fromDate}` : sql``}
+          ${toDate ? sql`AND created_at <= ${toDate}` : sql``}
+          ${focusFilter !== null ? sql`AND focus_rating = ${focusFilter}` : sql``}
+          ${taskName ? sql`AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(tasks_snapshot) AS t
+            WHERE LOWER(t->>'name') LIKE LOWER(${'%' + taskName + '%'})
+          )` : sql``}
+        ORDER BY created_at DESC
+        LIMIT ${MAX_REFLECTIONS_PER_REQUEST}
+      `;
+      res.status(200).json({ reflections: rows });
+    } catch (err) {
+      next(err);
+    }
   };
 }
 
@@ -74,7 +121,7 @@ export function buildReflectionsRouter(sql: postgres.Sql): Router {
   const router = Router();
   router.use(requireAuth);
   router.post('/', createReflectionHandler(sql));
-  router.get('/', listReflectionsHandler());
+  router.get('/', listReflectionsHandler(sql));
   router.patch('/:id', patchReflectionHandler());
   return router;
 }

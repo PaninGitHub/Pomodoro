@@ -131,12 +131,103 @@ describe.skipIf(SKIP)('Reflections endpoints', () => {
     });
   });
 
-  describe('GET /api/reflections (F-10 stub)', () => {
-    it('returns an empty reflections array', async () => {
+  describe('GET /api/reflections (F-10)', () => {
+    it('returns an empty array when user has no reflections', async () => {
       const app = buildApp(sql, userIdA);
       const res = await request(app).get('/api/reflections');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ reflections: [] });
+    });
+
+    it('returns the user reflections ordered by created_at DESC', async () => {
+      // Seed two reflections for userIdA at distinct timestamps.
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot, created_at)
+        VALUES (${userIdA}, ${sessionIdA}, 'session', 3, '{"obstacle":"old"}'::jsonb, '[]'::jsonb, NOW() - INTERVAL '2 days')
+      `;
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, period_number, focus_rating, answers, tasks_snapshot, created_at)
+        VALUES (${userIdA}, ${sessionIdA}, 'per_period', 1, 4, '{"did_well":"newer"}'::jsonb, '[]'::jsonb, NOW())
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections');
+      expect(res.status).toBe(200);
+      expect(res.body.reflections.length).toBe(2);
+      // Most recent first.
+      expect(res.body.reflections[0].type).toBe('per_period');
+      expect(res.body.reflections[1].type).toBe('session');
+    });
+
+    it('scopes to the authenticated user only', async () => {
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdB}, ${sessionIdB}, 'session', 2, '{}'::jsonb, '[]'::jsonb)
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections');
+      expect(res.status).toBe(200);
+      expect(res.body.reflections.length).toBe(0);
+    });
+
+    it('filters by focus_rating', async () => {
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES
+          (${userIdA}, ${sessionIdA}, 'session', 1, '{}'::jsonb, '[]'::jsonb),
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb),
+          (${userIdA}, ${sessionIdA}, 'session', 1, '{}'::jsonb, '[]'::jsonb)
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections?focus_rating=1');
+      expect(res.status).toBe(200);
+      expect(res.body.reflections.length).toBe(2);
+      for (const r of res.body.reflections) expect(r.focus_rating).toBe(1);
+    });
+
+    it('filters by from/to date range', async () => {
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot, created_at)
+        VALUES
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb, '2026-01-01T12:00:00Z'),
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb, '2026-02-15T12:00:00Z'),
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb, '2026-03-01T12:00:00Z')
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections?from=2026-02-01&to=2026-02-28');
+      expect(res.status).toBe(200);
+      expect(res.body.reflections.length).toBe(1);
+    });
+
+    it('filters by task_name (case-insensitive substring match)', async () => {
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb,
+            '[{"task_id":"11111111-1111-1111-1111-111111111111","name":"Read book","is_complete":true,"added_during_period":false}]'::jsonb),
+          (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb,
+            '[{"task_id":"22222222-2222-2222-2222-222222222222","name":"Write report","is_complete":false,"added_during_period":false}]'::jsonb)
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections?task_name=book');
+      expect(res.status).toBe(200);
+      expect(res.body.reflections.length).toBe(1);
+      expect(res.body.reflections[0].tasks_snapshot[0].name).toBe('Read book');
+    });
+
+    it('does not leak user_id in the response', async () => {
+      await sql`
+        INSERT INTO reflections (user_id, session_id, type, focus_rating, answers, tasks_snapshot)
+        VALUES (${userIdA}, ${sessionIdA}, 'session', 3, '{}'::jsonb, '[]'::jsonb)
+      `;
+      const app = buildApp(sql, userIdA);
+      const res = await request(app).get('/api/reflections');
+      expect(res.body.reflections[0]).not.toHaveProperty('user_id');
+    });
+
+    it('401 without auth', async () => {
+      const app = buildApp(sql, null);
+      const res = await request(app).get('/api/reflections');
+      expect(res.status).toBe(401);
     });
   });
 
