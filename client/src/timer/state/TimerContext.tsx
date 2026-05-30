@@ -2,6 +2,7 @@ import { createContext, useReducer, useEffect, useState, type ReactNode } from '
 import { timerReducer, initialTimerState, type TimerState, type TimerAction } from './timerReducer';
 import { computeRemaining } from '../math/timerMath';
 import { useSettings } from '../../settings/useSettings';
+import { useAuth } from '../../auth/useAuth';
 
 interface TimerContextValue {
   state: TimerState;
@@ -17,6 +18,7 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
   const [state, dispatch] = useReducer(timerReducer, initialTimerState);
   const [now, setNow] = useState<number>(Date.now());
   const { settings } = useSettings();
+  const { state: authState } = useAuth();
 
   useEffect(() => {
     if (state.status !== 'running') return;
@@ -57,6 +59,34 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
     settings.freestyle_ratio,
     settings.freestyle_accumulate,
   ]);
+
+  // Create a timer_sessions row whenever a session transitions from
+  // idle → running AND we don't already have a session_id. Guests skip
+  // (no auth). On failure, log and continue — the timer still works
+  // locally without server-side session persistence.
+  useEffect(() => {
+    if (authState.kind !== 'signed_in') return;
+    if (state.status !== 'running') return;
+    if (state.currentSessionId !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: state.mode }),
+        });
+        if (!cancelled && res.status === 201) {
+          const body = (await res.json()) as { session_id: string };
+          dispatch({ type: 'SET_SESSION_ID', sessionId: body.session_id });
+        }
+      } catch {
+        // Network failure: session still runs locally; just no DB row.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authState.kind, state.status, state.currentSessionId, state.mode]);
 
   const remainingMs = state.status === 'running'
     ? computeRemaining(state, now)
