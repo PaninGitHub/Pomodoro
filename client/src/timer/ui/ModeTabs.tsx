@@ -8,10 +8,11 @@ const MODES: { value: TimerMode; label: string }[] = [
 ];
 
 /**
- * Pill-style mode selector with a single sliding indicator that animates
- * smoothly along the X-axis between selections (transform: translateX).
- * Placed above the timer display, styled to match the period indicator's
- * uppercase / tracking-widest typography.
+ * Mode selector — equal-width 3-column grid with a sliding pill indicator.
+ * Phase 2 mid-fix: switched from inline-flex (variable column widths
+ * caused the indicator to drift away from longer labels like "Freestyle")
+ * to grid-cols-3 so every cell is exactly 1/3 of the parent — making the
+ * 1/3-wide indicator's translateX(N * 100%) land perfectly on each cell.
  */
 export function ModeTabs(): JSX.Element {
   const { state, dispatch } = useTimer();
@@ -22,13 +23,14 @@ export function ModeTabs(): JSX.Element {
     <div
       role="radiogroup"
       aria-label="Timer mode"
-      className={`relative inline-flex items-stretch border border-border rounded-md overflow-hidden bg-bg-secondary ${disabled ? 'opacity-60' : ''}`}
+      className={`relative grid grid-cols-3 mx-auto w-full max-w-sm border border-border rounded-full overflow-hidden bg-bg-secondary p-0.5 ${disabled ? 'opacity-60' : ''}`}
     >
-      {/* Sliding indicator (the white pill) */}
+      {/* Sliding indicator (pill) — sits inside the 0.5 padding so the
+          highlighted cell doesn't bleed to the outer border. */}
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1/3 bg-accent transition-transform duration-200 ease-out"
-        style={{ transform: `translateX(${selectedIndex * 100}%)` }}
+        className="absolute top-0.5 bottom-0.5 left-0.5 w-[calc((100%-0.25rem)/3)] rounded-full bg-accent transition-transform duration-200 ease-out pointer-events-none"
+        style={{ transform: `translateX(calc(${selectedIndex} * 100%))` }}
       />
       {MODES.map((m) => {
         const active = m.value === state.mode;
@@ -41,9 +43,9 @@ export function ModeTabs(): JSX.Element {
             disabled={disabled}
             onClick={() => dispatch({ type: 'SELECT_MODE', mode: m.value })}
             className={[
-              'relative z-10 px-4 py-1 text-xs uppercase tracking-widest min-w-[6rem] text-center transition-colors duration-200',
-              active ? 'text-bg-primary' : 'text-text-secondary hover:text-text-primary',
-              disabled && 'cursor-not-allowed',
+              'relative z-10 px-4 py-2 text-xs uppercase tracking-widest text-center transition-colors duration-200 rounded-full',
+              active ? 'text-bg-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
+              disabled ? 'cursor-not-allowed' : 'cursor-pointer',
             ].filter(Boolean).join(' ')}
           >
             {m.label}

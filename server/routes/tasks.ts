@@ -40,20 +40,19 @@ function createTaskHandler(sql: postgres.Sql) {
         res.status(400).json({ error: v.error });
         return;
       }
-      // Max-20 enforcement
-      const [countRow] = await sql<{ n: number }[]>`
-        SELECT COUNT(*)::int AS n FROM tasks WHERE user_id = ${userId}
+      // One query: count for limit check + next sort_order. Saves a round-trip
+      // (Phase 2 mid-fix: noticeable add-task delay was 2 sequential queries
+      // before INSERT plus a non-optimistic client wait).
+      const [stat] = await sql<{ n: number; next: number }[]>`
+        SELECT COUNT(*)::int AS n,
+               COALESCE(MAX(sort_order) + 1, 0)::int AS next
+        FROM tasks WHERE user_id = ${userId}
       `;
-      if ((countRow?.n ?? 0) >= MAX_TASKS) {
+      if ((stat?.n ?? 0) >= MAX_TASKS) {
         res.status(400).json({ error: `You've reached the maximum of ${MAX_TASKS} tasks.` });
         return;
       }
-      // sort_order: max existing + 1, or 0 if none
-      const [maxRow] = await sql<{ next: number }[]>`
-        SELECT COALESCE(MAX(sort_order) + 1, 0)::int AS next
-        FROM tasks WHERE user_id = ${userId}
-      `;
-      const next = maxRow?.next ?? 0;
+      const next = stat?.next ?? 0;
       const [task] = await sql<PublicTask[]>`
         INSERT INTO tasks (user_id, name, time_estimate, sort_order)
         VALUES (${userId}, ${v.value.name}, ${v.value.time_estimate}, ${next})
@@ -150,6 +149,19 @@ function reorderTasksHandler(sql: postgres.Sql) {
   };
 }
 
+function deleteAllTasksHandler(sql: postgres.Sql) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = getUserId(req);
+      const result = await sql`DELETE FROM tasks WHERE user_id = ${userId}`;
+      const count = (result as unknown as { count: number }).count;
+      res.status(200).json({ ok: true, deleted: count });
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 function deleteTaskHandler(sql: postgres.Sql) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -180,6 +192,7 @@ export function buildTasksRouter(sql: postgres.Sql): Router {
   router.post('/', createTaskHandler(sql));
   router.patch('/reorder', reorderTasksHandler(sql)); // must come before /:id
   router.patch('/:id', updateTaskHandler(sql));
+  router.delete('/', deleteAllTasksHandler(sql));     // clear all (must come before /:id)
   router.delete('/:id', deleteTaskHandler(sql));
   return router;
 }

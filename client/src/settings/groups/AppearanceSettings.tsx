@@ -51,6 +51,12 @@ export function AppearanceSettings(): JSX.Element {
           <option value="24h">24-hour</option>
         </select>
       </label>
+
+      <label className={labelCls}>
+        <input type="checkbox" checked={settings.show_avatar}
+               onChange={(e) => updateSettings({ show_avatar: e.target.checked })} />
+        Show profile avatar in header
+      </label>
     </section>
   );
 }

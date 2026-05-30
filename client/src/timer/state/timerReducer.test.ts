@@ -341,3 +341,82 @@ describe('timerReducer — auto-start preferences', () => {
     expect(s.autoStartPomodoros).toBe(true);
   });
 });
+
+describe('timerReducer — mode-switch state isolation (Phase 2 mid-fix)', () => {
+  it('SELECT_MODE → freestyle resets totalMs to 0 (stopwatch idle)', () => {
+    const s = timerReducer(initialTimerState, { type: 'SELECT_MODE', mode: 'freestyle' });
+    expect(s.totalMs).toBe(0);
+    expect(s.accumulatedMs).toBe(0);
+  });
+  it('SELECT_MODE → pomodoro restores totalMs to pomodoroWorkMs', () => {
+    const fromFreestyle: TimerState = { ...initialTimerState, mode: 'freestyle', totalMs: 0 };
+    const s = timerReducer(fromFreestyle, { type: 'SELECT_MODE', mode: 'pomodoro' });
+    expect(s.totalMs).toBe(fromFreestyle.pomodoroWorkMs);
+  });
+  it('SELECT_MODE → timer restores totalMs to timerDurationMs', () => {
+    const fromPomodoro: TimerState = { ...initialTimerState, mode: 'pomodoro', totalMs: 25 * 60 * 1000, timerDurationMs: 17 * 60 * 1000 };
+    const s = timerReducer(fromPomodoro, { type: 'SELECT_MODE', mode: 'timer' });
+    expect(s.totalMs).toBe(17 * 60 * 1000);
+  });
+  it('SET_DURATION in Timer mode persists value to timerDurationMs', () => {
+    const s = timerReducer(initialTimerState, { type: 'SET_DURATION', minutes: 12 });
+    expect(s.totalMs).toBe(12 * 60 * 1000);
+    expect(s.timerDurationMs).toBe(12 * 60 * 1000);
+  });
+  it('SET_DURATION in Pomodoro mode does NOT touch timerDurationMs', () => {
+    const pomo: TimerState = { ...initialTimerState, mode: 'pomodoro' };
+    const s = timerReducer(pomo, { type: 'SET_DURATION', minutes: 12 });
+    expect(s.totalMs).toBe(12 * 60 * 1000);
+    expect(s.timerDurationMs).toBe(initialTimerState.timerDurationMs);
+  });
+});
+
+describe('timerReducer — SET_DURATION while paused (click-to-edit fix)', () => {
+  it('updates totalMs and clears accumulatedMs (new value = time left)', () => {
+    const paused: TimerState = { ...initialTimerState, status: 'paused', totalMs: 25 * 60 * 1000, accumulatedMs: 8 * 60 * 1000 };
+    const s = timerReducer(paused, { type: 'SET_DURATION', minutes: 10 });
+    expect(s.totalMs).toBe(10 * 60 * 1000);
+    expect(s.accumulatedMs).toBe(0);
+    expect(s.status).toBe('paused');
+  });
+  it('also works in completed state (between Pomodoro periods)', () => {
+    const completed: TimerState = { ...initialTimerState, status: 'completed', totalMs: 5 * 60 * 1000, accumulatedMs: 5 * 60 * 1000 };
+    const s = timerReducer(completed, { type: 'SET_DURATION', minutes: 7 });
+    expect(s.totalMs).toBe(7 * 60 * 1000);
+    expect(s.accumulatedMs).toBe(0);
+  });
+  it('is ignored while running', () => {
+    const running: TimerState = { ...initialTimerState, status: 'running', totalMs: 25 * 60 * 1000 };
+    const s = timerReducer(running, { type: 'SET_DURATION', minutes: 99 });
+    expect(s.totalMs).toBe(25 * 60 * 1000);
+  });
+});
+
+describe('timerReducer — SET_POMODORO_DURATIONS live-syncs idle Pomodoro display', () => {
+  it('updates totalMs to new workMs when idle pomodoro with no in-progress session', () => {
+    const idle: TimerState = { ...initialTimerState, mode: 'pomodoro' };
+    const s = timerReducer(idle, {
+      type: 'SET_POMODORO_DURATIONS',
+      workMs: 30 * 60 * 1000, shortBreakMs: 5 * 60 * 1000, longBreakMs: 20 * 60 * 1000, longBreakEvery: 4,
+    });
+    expect(s.totalMs).toBe(30 * 60 * 1000);
+    expect(s.pomodoroWorkMs).toBe(30 * 60 * 1000);
+  });
+  it('does NOT touch totalMs while a Pomodoro session is in progress', () => {
+    const running: TimerState = { ...initialTimerState, mode: 'pomodoro', status: 'running', totalMs: 25 * 60 * 1000, pomodoro: { periodType: 'work', workCount: 0 } };
+    const s = timerReducer(running, {
+      type: 'SET_POMODORO_DURATIONS',
+      workMs: 30 * 60 * 1000, shortBreakMs: 5 * 60 * 1000, longBreakMs: 20 * 60 * 1000, longBreakEvery: 4,
+    });
+    expect(s.totalMs).toBe(25 * 60 * 1000); // current period preserved
+    expect(s.pomodoroWorkMs).toBe(30 * 60 * 1000); // setting still updated
+  });
+  it('does NOT touch totalMs when Timer mode is active (only Pomodoro idle live-syncs)', () => {
+    const idleTimer = initialTimerState; // mode = 'timer'
+    const s = timerReducer(idleTimer, {
+      type: 'SET_POMODORO_DURATIONS',
+      workMs: 30 * 60 * 1000, shortBreakMs: 5 * 60 * 1000, longBreakMs: 20 * 60 * 1000, longBreakEvery: 4,
+    });
+    expect(s.totalMs).toBe(initialTimerState.totalMs);
+  });
+});

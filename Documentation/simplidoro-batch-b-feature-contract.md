@@ -484,6 +484,45 @@ C-09: F-03 Freestyle mode substantially redesigned (Phase 2 user-feedback
         periods (and from the new Reset action) is added to the next
         break's totalMs when accumulation is ON.
 
+C-10: F-05 retitled from "Abandon and Reset" to "Skip Period."
+      Phase 2 mid-test user-feedback revision. Behavior changes per
+      mode:
+      - Pomodoro: Skip advances to the next period (work → break,
+        break → work) instead of resetting to idle. Workcount and
+        pomodoro state are preserved by PERIOD_COMPLETE semantics.
+      - Timer: Skip ends the session (functionally equivalent to
+        End Session). Both buttons render side-by-side for explicit
+        intent; UI may collapse later if confusing.
+      - Freestyle: Skip button is hidden. End Work + the break-choice
+        prompt (Start Break / Skip Break / End Session) already
+        cover per-period control. No new action introduced.
+      Original "reset current period to its full duration" semantics
+      from F-05 are hereby VOID. The previous ABANDON reducer action
+      is retained for completeness but unused by any UI control.
+
+C-11: F-13 to-do list adds a "Clear all tasks" action. A small text
+      button appears in the TodoList header whenever tasks.length > 0.
+      Confirmation modal shows the current count and requires explicit
+      Clear all click. Backed by DELETE /api/tasks (auth) or local
+      sessionStorage clear (guest). Cascade semantics: same as per-
+      task delete — fully removes rows; no soft-delete.
+
+C-12: F-25 Appearance settings add a "Show profile avatar in header"
+      toggle. Persisted as settings.show_avatar (BOOLEAN, default true)
+      in migration 012. When off, the Google avatar is hidden from
+      AuthWidget but display_name + Log out remain. Available to
+      authenticated users only (guests have no avatar).
+
+C-13: F-03 Freestyle target-duration source (C-09 amendment). The
+      target was previously edited inline on the timer display when
+      Freestyle was idle. Phase 2 mid-test feedback: the target now
+      lives as a persisted setting (settings.freestyle_target_minutes,
+      INTEGER 1–720, default 25, migration 012) and is edited only in
+      the per-mode settings popup (and Settings → Timer). Click-to-
+      edit on the Freestyle display is removed entirely (the display
+      is now read-only for Freestyle); the target toggle remains as a
+      per-session UI choice on the TimerState.
+
 ---
 
 ## SECTION 6 (CONTINUED): DETAILED FEATURE SPECIFICATIONS

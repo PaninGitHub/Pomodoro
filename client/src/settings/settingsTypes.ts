@@ -24,11 +24,13 @@ export interface Settings {
   hour_format: string;
   timer_adjust_step_minutes: number;
   freestyle_breaks_enabled: boolean;
+  show_avatar: boolean;
+  freestyle_target_minutes: number;
 }
 
 export type PartialSettings = Partial<Settings>;
 
-// TODO(phase-2): keep in sync with migration 007 defaults.
+// Defaults must match migrations 007 + 010 + 011 + 012 exactly.
 export const DEFAULT_SETTINGS: Settings = {
   work_duration: 25,
   short_break_duration: 5,
@@ -53,4 +55,6 @@ export const DEFAULT_SETTINGS: Settings = {
   hour_format: '12h',
   timer_adjust_step_minutes: 5,
   freestyle_breaks_enabled: true,
+  show_avatar: true,
+  freestyle_target_minutes: 25,
 };

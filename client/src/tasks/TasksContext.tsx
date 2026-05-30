@@ -17,6 +17,7 @@ interface TasksContextValue {
   addTask: (name: string, timeEstimate: number) => Promise<{ ok: boolean; error?: string }>;
   updateTask: (id: string, patch: Partial<Pick<ClientTask, 'name' | 'time_estimate' | 'is_complete'>>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  clearAllTasks: () => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
   toggleComplete: (id: string) => Promise<void>;
 }
@@ -100,35 +101,40 @@ export function TasksProvider({ children }: { children: ReactNode }): JSX.Elemen
     if (tasks.length >= MAX_TASKS) {
       return { ok: false, error: `You've reached the maximum of ${MAX_TASKS} tasks.` };
     }
-    if (isAuth) {
-      try {
-        const res = await fetch('/api/tasks', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, time_estimate }),
-        });
-        if (res.status !== 201) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          return { ok: false, error: body.error ?? 'Could not save task.' };
-        }
-        const body = (await res.json()) as { task: ClientTask };
-        setTasks((prev) => [...prev, body.task]);
-        return { ok: true };
-      } catch {
-        return { ok: false, error: 'Server unreachable.' };
-      }
-    }
-    // Guest: append locally.
-    const next: ClientTask = {
-      id: randomGuestId(),
+    // Optimistic append (auth + guest). Auth path replaces temp row with the
+    // server's row on 201, or rolls back on failure. Removes the perceived
+    // 2-3 second add-delay caused by waiting for the POST round-trip.
+    const tempId = randomGuestId();
+    const optimistic: ClientTask = {
+      id: tempId,
       name: name.trim(),
       time_estimate,
       is_complete: false,
       sort_order: tasks.length,
     };
-    setTasks((prev) => [...prev, next]);
-    return { ok: true };
+    setTasks((prev) => [...prev, optimistic]);
+
+    if (!isAuth) return { ok: true };
+
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, time_estimate }),
+      });
+      if (res.status !== 201) {
+        setTasks((prev) => prev.filter((t) => t.id !== tempId));
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error ?? 'Could not save task.' };
+      }
+      const body = (await res.json()) as { task: ClientTask };
+      setTasks((prev) => prev.map((t) => (t.id === tempId ? body.task : t)));
+      return { ok: true };
+    } catch {
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      return { ok: false, error: 'Server unreachable.' };
+    }
   }, [isAuth, tasks.length]);
 
   const updateTask = useCallback(async (id: string, patch: Partial<Pick<ClientTask, 'name' | 'time_estimate' | 'is_complete'>>) => {
@@ -158,6 +164,19 @@ export function TasksProvider({ children }: { children: ReactNode }): JSX.Elemen
       }
     }
   }, [isAuth]);
+
+  const clearAllTasks = useCallback(async () => {
+    const prev = tasks;
+    setTasks([]);
+    if (isAuth) {
+      try {
+        const res = await fetch('/api/tasks', { method: 'DELETE', credentials: 'include' });
+        if (res.status !== 200) setTasks(prev);
+      } catch {
+        setTasks(prev);
+      }
+    }
+  }, [tasks, isAuth]);
 
   const reorderTasks = useCallback(async (orderedIds: string[]) => {
     setTasks((prev) => {
@@ -190,7 +209,7 @@ export function TasksProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [tasks, updateTask]);
 
   return (
-    <TasksContext.Provider value={{ tasks, addTask, updateTask, deleteTask, reorderTasks, toggleComplete }}>
+    <TasksContext.Provider value={{ tasks, addTask, updateTask, deleteTask, clearAllTasks, reorderTasks, toggleComplete }}>
       {children}
     </TasksContext.Provider>
   );

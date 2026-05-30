@@ -32,3 +32,6 @@ coverage/
 
 # Local planning docs (not committed)
 docs/
+
+# Session handoff docs (per-session scratch; never committed)
+Documentation/handoffs/

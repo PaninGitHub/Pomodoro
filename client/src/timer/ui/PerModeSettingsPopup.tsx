@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useTimer } from '../state/useTimer';
 import { useSettings } from '../../settings/useSettings';
+import { NumericInput } from '../../settings/NumericInput';
+import { DEFAULT_SETTINGS } from '../../settings/settingsTypes';
 
 const numCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary w-24';
 const labelCls = 'flex items-center justify-between gap-2 text-sm text-text-secondary';
@@ -64,23 +66,23 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
           <>
             <label className={labelCls}>
               Work duration (min)
-              <input type="number" min={1} max={720} step="any" value={settings.work_duration}
-                     onChange={(e) => updateSettings({ work_duration: Number(e.target.value) })} className={numCls} />
+              <NumericInput value={settings.work_duration} defaultValue={DEFAULT_SETTINGS.work_duration}
+                            min={1} max={720} onSave={(n) => void updateSettings({ work_duration: n })} className={numCls} />
             </label>
             <label className={labelCls}>
               Short break (min)
-              <input type="number" min={1} max={720} step="any" value={settings.short_break_duration}
-                     onChange={(e) => updateSettings({ short_break_duration: Number(e.target.value) })} className={numCls} />
+              <NumericInput value={settings.short_break_duration} defaultValue={DEFAULT_SETTINGS.short_break_duration}
+                            min={1} max={720} onSave={(n) => void updateSettings({ short_break_duration: n })} className={numCls} />
             </label>
             <label className={labelCls}>
               Long break (min)
-              <input type="number" min={1} max={720} step="any" value={settings.long_break_duration}
-                     onChange={(e) => updateSettings({ long_break_duration: Number(e.target.value) })} className={numCls} />
+              <NumericInput value={settings.long_break_duration} defaultValue={DEFAULT_SETTINGS.long_break_duration}
+                            min={1} max={720} onSave={(n) => void updateSettings({ long_break_duration: n })} className={numCls} />
             </label>
             <label className={labelCls}>
               Long break every (work periods)
-              <input type="number" min={0} max={99} value={settings.long_break_frequency}
-                     onChange={(e) => updateSettings({ long_break_frequency: Number.parseInt(e.target.value, 10) || 0 })} className={numCls} />
+              <NumericInput value={settings.long_break_frequency} defaultValue={DEFAULT_SETTINGS.long_break_frequency}
+                            min={0} max={99} zeroAllowed onSave={(n) => void updateSettings({ long_break_frequency: n })} className={numCls} />
             </label>
             <label className={labelCls}>
               <span>Auto Start Breaks</span>
@@ -99,11 +101,9 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
           <>
             <label className={labelCls}>
               Ratio (X work per 1 break)
-              <input type="number" min={0.01} step={0.01} value={settings.freestyle_ratio}
-                     onChange={(e) => {
-                       const n = Number(e.target.value);
-                       if (Number.isFinite(n) && n > 0) updateSettings({ freestyle_ratio: n });
-                     }} className={numCls} />
+              <NumericInput value={settings.freestyle_ratio} defaultValue={DEFAULT_SETTINGS.freestyle_ratio}
+                            min={0.01} max={9999} integer={false} step={0.01}
+                            onSave={(n) => void updateSettings({ freestyle_ratio: n })} className={numCls} />
             </label>
             <label className={labelCls}>
               <span>Accumulate unspent break time</span>
@@ -120,16 +120,20 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
               <input type="checkbox" checked={state.freestyleTargetEnabled}
                      onChange={(e) => dispatch({ type: 'SET_FREESTYLE_TARGET_ENABLED', value: e.target.checked })} />
             </label>
-            <p className="text-xs text-text-secondary italic">
-              Click the timer display when idle to set the target duration.
-            </p>
+            <label className={labelCls}>
+              Work-duration target (min)
+              <NumericInput value={settings.freestyle_target_minutes} defaultValue={DEFAULT_SETTINGS.freestyle_target_minutes}
+                            min={1} max={720} disabled={!state.freestyleTargetEnabled}
+                            onSave={(n) => void updateSettings({ freestyle_target_minutes: n })}
+                            className={numCls + ' disabled:opacity-50'} />
+            </label>
           </>
         )}
 
         <label className={labelCls + ' mt-2'}>
           +/- adjust step (min)
-          <input type="number" min={1} max={60} value={settings.timer_adjust_step_minutes}
-                 onChange={(e) => updateSettings({ timer_adjust_step_minutes: Number.parseInt(e.target.value, 10) || 5 })} className={numCls} />
+          <NumericInput value={settings.timer_adjust_step_minutes} defaultValue={DEFAULT_SETTINGS.timer_adjust_step_minutes}
+                        min={1} max={60} onSave={(n) => void updateSettings({ timer_adjust_step_minutes: n })} className={numCls} />
         </label>
       </div>
     </div>
