@@ -123,6 +123,7 @@ export function TimerArea(): JSX.Element {
   // Pomodoro auto-start: after PERIOD_COMPLETE prepares the next period,
   // start it automatically if the matching toggle is on.
   useEffect(() => {
+    if (state.status === 'reflecting') return; // reflection blocks auto-start (F-07)
     if (state.mode !== 'pomodoro') return;
     if (state.status !== 'completed') return;
     if (!state.pomodoro) return;
