@@ -23,7 +23,21 @@ export function Controls(): JSX.Element | null {
   function onStartNext()    { dispatch({ type: 'START', now: Date.now() }); }
   function onPause()        { dispatch({ type: 'PAUSE', now: Date.now() }); }
   function onResume()       { dispatch({ type: 'RESUME', now: Date.now() }); }
-  function onEndSession()   { dispatch({ type: 'END_SESSION' }); }
+  function onEndSession() {
+    // F-08: if reflection is on AND a work-bearing period actually ran
+    // this session, route through the session-reflection prompt first.
+    // Otherwise fall back to the plain END_SESSION reset.
+    const workRan =
+      (state.mode === 'pomodoro' && (state.pomodoro?.workCount ?? 0) > 0) ||
+      (state.mode === 'pomodoro' && state.pomodoro?.periodType === 'work' && state.status !== 'idle') ||
+      (state.mode === 'timer' && state.status !== 'idle') ||
+      (state.mode === 'freestyle' && state.freestyle !== null);
+    if (settings.reflection_enabled && workRan) {
+      dispatch({ type: 'END_SESSION_WITH_REFLECTION' });
+    } else {
+      dispatch({ type: 'END_SESSION' });
+    }
+  }
   function onEndWork()      { dispatch({ type: 'FREESTYLE_END_WORK', now: Date.now() }); }
   function onSkip() {
     // Phase 2 mid-fix: replaces "Abandon" (which reset to idle without
