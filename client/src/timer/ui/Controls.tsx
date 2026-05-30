@@ -54,6 +54,10 @@ export function Controls(): JSX.Element | null {
   const btn = 'px-6 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
   const primary = 'px-6 py-2 rounded bg-accent text-bg-primary hover:opacity-90 font-semibold';
 
+  // F-07 / F-08: While the reflection modal is open, hide the standard
+  // controls — the modal owns the action surface (Submit / Skip).
+  if (state.status === 'reflecting') return null;
+
   // C-09: While Freestyle has a prompt active (target_reached / break_choice),
   // hide the standard controls — the prompt overlay owns the choices.
   if (state.mode === 'freestyle' && state.freestyle && state.freestyle.prompt !== 'none') {
