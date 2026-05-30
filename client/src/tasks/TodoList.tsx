@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useTasks } from './useTasks';
 import { TaskRow } from './TaskRow';
 import { AddTaskForm } from './AddTaskForm';
+import { ClearAllTasksModal } from './ClearAllTasksModal';
 
 export function TodoList(): JSX.Element {
   const { tasks, reorderTasks } = useTasks();
+  const [showClear, setShowClear] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -26,6 +29,17 @@ export function TodoList(): JSX.Element {
 
   return (
     <div className="w-full max-w-2xl flex flex-col gap-3">
+      {tasks.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowClear(true)}
+            className="text-xs text-text-secondary hover:text-error underline"
+          >
+            Clear all tasks
+          </button>
+        </div>
+      )}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <ul className="flex flex-col gap-2 list-none p-0 m-0 group">
@@ -34,6 +48,7 @@ export function TodoList(): JSX.Element {
         </SortableContext>
       </DndContext>
       <AddTaskForm />
+      {showClear && <ClearAllTasksModal onClose={() => setShowClear(false)} />}
     </div>
   );
 }
