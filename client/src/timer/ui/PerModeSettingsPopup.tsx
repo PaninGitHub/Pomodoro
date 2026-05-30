@@ -120,9 +120,17 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
               <input type="checkbox" checked={state.freestyleTargetEnabled}
                      onChange={(e) => dispatch({ type: 'SET_FREESTYLE_TARGET_ENABLED', value: e.target.checked })} />
             </label>
-            <p className="text-xs text-text-secondary italic">
-              Click the timer display when idle to set the target duration.
-            </p>
+            <label className={labelCls}>
+              Work-duration target (min)
+              <input type="number" min={1} max={720} value={settings.freestyle_target_minutes}
+                     onChange={(e) => {
+                       const n = Number.parseInt(e.target.value, 10);
+                       if (Number.isFinite(n) && n >= 1 && n <= 720) {
+                         updateSettings({ freestyle_target_minutes: n });
+                       }
+                     }} disabled={!state.freestyleTargetEnabled}
+                     className={numCls + ' disabled:opacity-50'} />
+            </label>
           </>
         )}
 

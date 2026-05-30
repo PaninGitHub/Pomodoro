@@ -1,14 +1,20 @@
 import { useTimer } from '../state/useTimer';
+import { useSettings } from '../../settings/useSettings';
 
 export function Controls(): JSX.Element | null {
   const { state, dispatch } = useTimer();
+  const { settings } = useSettings();
 
   function onStartInitial() {
     if (state.mode === 'pomodoro') {
       dispatch({ type: 'START_POMODORO', now: Date.now() });
     } else if (state.mode === 'freestyle') {
-      // Per C-09: target is the current totalMs, or 0 when user disabled it.
-      const targetMs = state.freestyleTargetEnabled ? state.totalMs : 0;
+      // Per C-09 (mid-fix amendment): target now lives in
+      // settings.freestyle_target_minutes (was previously state.totalMs
+      // set via the timer-display click-edit, which has been removed).
+      const targetMs = state.freestyleTargetEnabled
+        ? settings.freestyle_target_minutes * 60_000
+        : 0;
       dispatch({ type: 'START_FREESTYLE', now: Date.now(), targetMs });
     } else {
       dispatch({ type: 'START', now: Date.now() });
