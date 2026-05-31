@@ -1,5 +1,19 @@
 import { createContext, useReducer, useEffect, useRef, useState, type ReactNode } from 'react';
 import { timerReducer, initialTimerState, type TimerState, type TimerAction } from './timerReducer';
+
+// True while we're actively serving out a break period (running or paused
+// — not 'completed' which means "break ready to start, awaiting click").
+// Used by the break-log PATCH-on-end watcher to detect transitions OUT.
+function isActiveBreak(s: TimerState): boolean {
+  if (s.status !== 'running' && s.status !== 'paused') return false;
+  if (s.mode === 'pomodoro') {
+    return s.pomodoro?.periodType === 'short_break' || s.pomodoro?.periodType === 'long_break';
+  }
+  if (s.mode === 'freestyle') {
+    return s.freestyle?.periodType === 'break';
+  }
+  return false;
+}
 import { computeRemaining } from '../math/timerMath';
 import { useSettings } from '../../settings/useSettings';
 import { useAuth } from '../../auth/useAuth';
@@ -149,6 +163,61 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
       prevSessionIdRef.current = state.currentSessionId;
     }
   }, [authState.kind, state.status, state.currentSessionId]);
+
+  // Patch the break_logs row when a break period ends. "End" = transition
+  // from active break (running/paused on a break period) to anything else
+  // (next work via PERIOD_COMPLETE, session end via ABANDON/END_SESSION,
+  // reflection chain, etc.). Mirrors the prevSessionIdRef pattern above —
+  // the reducer's END_SESSION/ABANDON clear currentBreakLogId in the same
+  // tick, so the PATCH effect snapshots the id via ref to survive the clear.
+  //
+  // For natural period transitions (break → work), the reducer's
+  // PERIOD_COMPLETE doesn't clear currentBreakLogId — this effect detects
+  // the active-break → not-active-break transition and dispatches
+  // SET_BREAK_LOG_ID null itself, after firing the PATCH.
+  //
+  // KNOWN LIMITATION: if the user reloads the browser mid-break, the in-DB
+  // row stays with NULL break_ended_at indefinitely. A sweep job (mirroring
+  // the timer_sessions 12-hour auto-end pattern in Batch D §12.7) is the
+  // proper fix and is deferred — track via PROGRESS.md follow-up.
+  const prevBreakLogIdRef = useRef<string | null>(null);
+  const wasInBreakRef = useRef<boolean>(false);
+  useEffect(() => {
+    const inBreak = isActiveBreak(state);
+    const closing = wasInBreakRef.current && !inBreak && prevBreakLogIdRef.current !== null;
+    if (closing) {
+      const closingId = prevBreakLogIdRef.current!;
+      prevBreakLogIdRef.current = null;
+      if (authState.kind === 'signed_in') {
+        void (async () => {
+          try {
+            await fetch(`/api/break-logs/${closingId}`, {
+              method: 'PATCH',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ break_ended_at: new Date().toISOString() }),
+            });
+          } catch {
+            // Best-effort; the row stays open. See KNOWN LIMITATION above.
+          }
+        })();
+      }
+      if (state.currentBreakLogId !== null) {
+        dispatch({ type: 'SET_BREAK_LOG_ID', logId: null });
+      }
+    }
+    wasInBreakRef.current = inBreak;
+    if (state.currentBreakLogId !== null) {
+      prevBreakLogIdRef.current = state.currentBreakLogId;
+    }
+  }, [
+    authState.kind,
+    state.status,
+    state.mode,
+    state.currentBreakLogId,
+    state.pomodoro?.periodType,
+    state.freestyle?.periodType,
+  ]);
 
   const remainingMs = state.status === 'running'
     ? computeRemaining(state, now)

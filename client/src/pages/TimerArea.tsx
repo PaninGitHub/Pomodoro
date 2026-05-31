@@ -9,6 +9,7 @@ import { TwoTabBanner } from '../timer/ui/TwoTabBanner';
 import { TimerActionBar } from '../timer/ui/TimerActionBar';
 import { FreestylePromptOverlay } from '../timer/ui/FreestylePromptOverlay';
 import { ReflectionModal } from '../reflections/ReflectionModal';
+import { BreakActivityPopup } from '../breaks/BreakActivityPopup';
 import { useVisibilityChange } from '../timer/hooks/useVisibilityChange';
 import { useBroadcastChannel } from '../timer/hooks/useBroadcastChannel';
 import { isPeriodOverCap, PERIOD_CAP_MESSAGE } from '../timer/math/periodCap';
@@ -172,6 +173,7 @@ export function TimerArea(): JSX.Element {
       <Controls />
       <FreestylePromptOverlay />
       <ReflectionModal />
+      <BreakActivityPopup />
       <TimerActionBar />
       <TodoList />
     </div>
