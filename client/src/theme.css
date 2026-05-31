@@ -10,7 +10,11 @@
   --color-bg-secondary:  #141414;
   --color-bg-tertiary:   #1f1f1f;
   --color-text-primary:  #f5f5f5;
-  --color-text-secondary:#a0a0a0;
+  /* Bumped from #a0a0a0 (Phase 4.1) — old contrast on bg-primary was 8.55:1
+   * which still legible but felt washed out for form labels in Settings.
+   * #d4d4d4 ≈ 13.85:1 — near-white while preserving a perceptible step
+   * down from --color-text-primary (#f5f5f5) so visual hierarchy stays. */
+  --color-text-secondary:#d4d4d4;
   --color-accent:        #ffffff;
   --color-border:        #2e2e2e;
   --color-timer:         #ffffff;
