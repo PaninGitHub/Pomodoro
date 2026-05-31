@@ -5,6 +5,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ReflectionLogPage } from './reflections/ReflectionLogPage';
 import { BreakActivitiesPage } from './breaks/BreakActivitiesPage';
 import { BreakLogPage } from './breaks/BreakLogPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
       { path: 'reflections', element: <ReflectionLogPage /> },
       { path: 'break-activities', element: <BreakActivitiesPage /> },
       { path: 'break-logs', element: <BreakLogPage /> },
+      { path: 'reports', element: <ReportsPage /> },
       // Phase 8: { path: 'privacy', element: <Privacy /> }
     ],
   },

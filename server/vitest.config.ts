@@ -19,5 +19,10 @@ export default defineConfig({
     // 10 s hook) are tight for supertest + cross-Atlantic latency.
     testTimeout: 30000,
     hookTimeout: 60000,
+    // 10 DB-touching files each TRUNCATE users CASCADE in beforeEach;
+    // running them in parallel workers deadlocks on the same cascaded
+    // lock set. Serialize files (intra-file tests still run sequentially
+    // per Vitest default) — suite is ~30 s longer but deterministic.
+    fileParallelism: false,
   },
 });
