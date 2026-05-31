@@ -84,6 +84,11 @@ export function TimerSettings(): JSX.Element {
         <NumericInput value={settings.timer_adjust_step_minutes} defaultValue={DEFAULT_SETTINGS.timer_adjust_step_minutes}
                       min={1} max={60} onSave={(n) => save('timer_adjust_step_minutes', n)} className={inputCls} />
       </label>
+      <label className={labelCls}>
+        Break activities library limit
+        <NumericInput value={settings.break_activity_limit} defaultValue={DEFAULT_SETTINGS.break_activity_limit}
+                      min={1} max={30} onSave={(n) => save('break_activity_limit', n)} className={inputCls} />
+      </label>
     </section>
   );
 }

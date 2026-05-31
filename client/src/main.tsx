@@ -6,6 +6,7 @@ import { AuthProvider } from './auth/AuthContext';
 import { SettingsProvider } from './settings/SettingsContext';
 import { ReflectionPromptsProvider } from './reflections/ReflectionContext';
 import { TasksProvider } from './tasks/TasksContext';
+import { BreakActivitiesProvider } from './breaks/BreakActivitiesContext';
 import { TimerProvider } from './timer/state/TimerContext';
 
 const rootEl = document.getElementById('root');
@@ -17,9 +18,11 @@ createRoot(rootEl).render(
       <SettingsProvider>
         <ReflectionPromptsProvider>
           <TasksProvider>
-            <TimerProvider>
-              <App />
-            </TimerProvider>
+            <BreakActivitiesProvider>
+              <TimerProvider>
+                <App />
+              </TimerProvider>
+            </BreakActivitiesProvider>
           </TasksProvider>
         </ReflectionPromptsProvider>
       </SettingsProvider>

@@ -11,6 +11,9 @@ export function AppLayout(): JSX.Element {
           Simplidoro
         </Link>
         <div className="flex items-center gap-4">
+          <Link to="/break-activities" className="text-text-secondary hover:text-text-primary text-sm">
+            Breaks
+          </Link>
           <Link to="/reflections" className="text-text-secondary hover:text-text-primary text-sm">
             Reflections
           </Link>
