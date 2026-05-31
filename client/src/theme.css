@@ -29,3 +29,55 @@
   /* Font (set by useFont hook on mount) */
   --font-active: 'Inter';
 }
+
+/* ===========================================================================
+ * Phase 6 Slice A — Accessibility
+ * =========================================================================== */
+
+/* :focus-visible — keyboard focus ring. Uses --color-accent so it adapts
+ * when colored themes ship (F-25). Outline (not border) so layout doesn't
+ * shift on focus; outline-offset separates it from the element's own
+ * border on dark themes where contrast can be subtle. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Remove default focus ring only when :focus-visible isn't active (i.e.
+ * mouse click). Keeps keyboard-nav users covered while killing the
+ * mouse-click ring browsers sometimes leave behind. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* prefers-reduced-motion — collapse transitions and animations app-wide
+ * for users who request reduced motion. Catches Tailwind transition-* /
+ * animate-* utilities via the universal selector so no per-component
+ * changes are needed. Smooth scroll also gets disabled. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* sr-only utility — visually hidden but readable by screen readers.
+ * Used by the aria-live announcer region in AppLayout (Phase 6 Slice A
+ * item 2). Tailwind ships its own `sr-only` class; this is a defensive
+ * duplicate so the technique works even if the Tailwind utility ever
+ * gets disabled. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

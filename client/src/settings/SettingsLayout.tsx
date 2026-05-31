@@ -46,7 +46,7 @@ function TabsLayout({ sections }: { sections: SettingsSection[] }): JSX.Element 
               aria-controls={`panel-${s.id}`}
               id={`tab-${s.id}`}
               onClick={() => setActiveId(s.id)}
-              className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
+              className={`px-4 min-h-[44px] text-sm border-b-2 -mb-px transition-colors ${
                 selected
                   ? 'border-text-primary text-text-primary'
                   : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -79,7 +79,7 @@ function CollapsibleLayout({ sections }: { sections: SettingsSection[] }): JSX.E
           open={i === 0}
           className="border border-border rounded bg-bg-secondary/30 group"
         >
-          <summary className="cursor-pointer select-none px-4 py-3 text-lg text-text-primary list-none flex items-center justify-between hover:bg-bg-secondary/50">
+          <summary className="cursor-pointer select-none px-4 py-3 min-h-[44px] text-lg text-text-primary list-none flex items-center justify-between hover:bg-bg-secondary/50">
             <span>{s.label}</span>
             <span aria-hidden className="text-text-secondary text-sm transition-transform group-open:rotate-90">▶</span>
           </summary>

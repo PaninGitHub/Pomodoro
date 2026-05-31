@@ -6,7 +6,9 @@ import { KeyboardShortcutsModal } from '../../settings/KeyboardShortcutsModal';
 import { BreakActivitiesModal } from '../../breaks/BreakActivitiesModal';
 import { useModalTriggers } from '../../ui/ModalTriggersContext';
 
-const iconBtn = 'inline-flex items-center justify-center w-9 h-9 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
+// 44×44 hit area for ≥44px touch-target compliance (Phase 6 Slice A item 4).
+// Icon stays 18px; the bump is pure padding.
+const iconBtn = 'inline-flex items-center justify-center w-11 h-11 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary';
 
 /**
  * Action bar shown below the timer's Start button — break activities,

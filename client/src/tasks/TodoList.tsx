@@ -28,7 +28,7 @@ export function TodoList(): JSX.Element {
   }
 
   return (
-    <div className="w-full max-w-2xl flex flex-col gap-3">
+    <section aria-label="Tasks" className="w-full max-w-2xl flex flex-col gap-3">
       {tasks.length > 0 && (
         <div className="flex justify-end">
           <button
@@ -49,6 +49,6 @@ export function TodoList(): JSX.Element {
       </DndContext>
       <AddTaskForm />
       {showClear && <ClearAllTasksModal onClose={() => setShowClear(false)} />}
-    </div>
+    </section>
   );
 }

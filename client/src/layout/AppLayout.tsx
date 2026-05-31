@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { AuthWidget } from './AuthWidget';
 import { useAuth } from '../auth/useAuth';
 import { useGlobalHotkeys } from '../timer/state/useGlobalHotkeys';
+import { useTimerAnnounce } from '../timer/state/useTimerAnnounce';
 import { links } from '../routes';
 
 export function AppLayout(): JSX.Element {
@@ -11,6 +12,8 @@ export function AppLayout(): JSX.Element {
   // Mounted here because it's the always-rendered parent of all routes
   // (lives inside RouterProvider so useNavigate works).
   useGlobalHotkeys();
+  // Phase 6 Slice A — screen-reader announcer for timer period transitions.
+  const announcement = useTimerAnnounce();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -20,7 +23,7 @@ export function AppLayout(): JSX.Element {
         <Link to={links.home()} className="text-lg font-semibold text-text-primary no-underline">
           Simplidoro
         </Link>
-        <div className="flex items-center gap-4">
+        <nav aria-label="Primary" className="flex items-center gap-4">
           {/* Phase 5.5 — single Logs trigger replaces Break log / Reflections
               / Reports. Auth-gated because Reports (the default tab) is
               authenticated-only per F-28 spec line 1561. Break log and
@@ -34,11 +37,17 @@ export function AppLayout(): JSX.Element {
             Settings
           </Link>
           <AuthWidget />
-        </div>
+        </nav>
       </header>
       <main className="flex-1 flex flex-col items-center">
         <Outlet />
       </main>
+      {/* Phase 6 Slice A — aria-live region for timer transitions. Hidden
+          visually; screen readers announce changes politely (won't
+          interrupt other speech). */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
     </div>
   );
 }
