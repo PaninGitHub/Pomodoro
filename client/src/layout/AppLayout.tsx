@@ -1,7 +1,11 @@
 import { Link, Outlet } from 'react-router-dom';
 import { AuthWidget } from './AuthWidget';
+import { useAuth } from '../auth/useAuth';
 
 export function AppLayout(): JSX.Element {
+  const { state: authState } = useAuth();
+  const isSignedIn = authState.kind === 'signed_in';
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -20,6 +24,13 @@ export function AppLayout(): JSX.Element {
           <Link to="/reflections" className="text-text-secondary hover:text-text-primary text-sm">
             Reflections
           </Link>
+          {/* F-28 spec line 1561: Reports tab hidden entirely for guests.
+              Page itself also gates as defense in depth. */}
+          {isSignedIn && (
+            <Link to="/reports" className="text-text-secondary hover:text-text-primary text-sm">
+              Reports
+            </Link>
+          )}
           <Link to="/settings" className="text-text-secondary hover:text-text-primary text-sm">
             Settings
           </Link>
