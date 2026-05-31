@@ -29,3 +29,38 @@
   /* Font (set by useFont hook on mount) */
   --font-active: 'Inter';
 }
+
+/* ===========================================================================
+ * Claude theme — Phase 6 preview (NOT WIRED INTO SETTINGS YET).
+ *
+ * Warm dark base, Anthropic coral accent, hue-shifted gold timer.
+ * Backgrounds step ~7–8% in lightness so the layering reads at a glance;
+ * border sits between the deepest text and the lightest bg so it has its
+ * own clear identity slot; timer is hue-shifted from accent (gold vs
+ * coral) so the digits are visually distinct from "active selection" UI.
+ *
+ * To preview: open DevTools, run in console:
+ *   document.documentElement.setAttribute('data-theme', 'claude')
+ * To revert:
+ *   document.documentElement.setAttribute('data-theme', 'bw-dark')
+ * =========================================================================== */
+[data-theme="claude"] {
+  /* 8-slot palette (theme-specific) */
+  --color-bg-primary:    #1c1816;  /* deep warm umber */
+  --color-bg-secondary:  #2d2622;  /* warm cocoa */
+  --color-bg-tertiary:   #3f342d;  /* warm coffee */
+  --color-text-primary:  #f4ecd8;  /* parchment cream */
+  --color-text-secondary:#9c8a78;  /* muted sand */
+  --color-accent:        #cc785c;  /* Anthropic coral */
+  --color-border:        #5a4a3c;  /* medium warm brown */
+  --color-timer:         #d4a574;  /* warm gold */
+
+  /* 3 fixed semantic (identical across all themes) */
+  --color-error:   #e05252;
+  --color-warning: #d4a017;
+  --color-success: #4caf82;
+
+  /* Font (themes don't currently override; left here so the block is
+   * self-contained if useFont ever stops setting --font-active). */
+  --font-active: 'Inter';
+}
