@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import postgres from 'postgres';
-import path from 'node:path';
-import { runMigrations } from '../db/migrate';
 import { upsertUserFromGoogleProfile, type GoogleProfile } from './upsertUser';
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL;
@@ -10,12 +8,10 @@ const SKIP = !TEST_DB_URL;
 describe.skipIf(SKIP)('upsertUserFromGoogleProfile', () => {
   let sql: postgres.Sql;
 
-  beforeAll(async () => {
+  beforeAll(() => {
+    // Schema is migrated once per session by vitest globalSetup
+    // (db/testGlobalSetup.ts).
     sql = postgres(TEST_DB_URL!, { prepare: false });
-    await sql`DROP TABLE IF EXISTS _migrations CASCADE`;
-    await sql`DROP TABLE IF EXISTS session CASCADE`;
-    await sql`DROP TABLE IF EXISTS users CASCADE`;
-    await runMigrations(sql, path.resolve(__dirname, '../db/migrations'));
   });
 
   afterAll(async () => {
