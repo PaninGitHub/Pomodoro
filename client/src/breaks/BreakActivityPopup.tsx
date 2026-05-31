@@ -21,7 +21,7 @@
 // closes without re-opening; no POST is made. The PATCH-on-end effect in
 // TimerContext is auth-gated, so the sentinel never reaches the server.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTimer } from '../timer/state/useTimer';
 import { useAuth } from '../auth/useAuth';
 import { useBreakActivities } from './useBreakActivities';
@@ -35,6 +35,21 @@ export function BreakActivityPopup(): JSX.Element | null {
   const { activities } = useBreakActivities();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset local state whenever a fresh popup cycle starts (currentBreakLogId
+  // transitions back to null after a prior break ended, session ended, or
+  // ABANDON cleared it). This component uses `return null` gates below
+  // instead of being conditionally mounted by the parent, which means
+  // React keeps the instance alive between break periods and the local
+  // `submitting` flag from the previous POST would survive into the next
+  // popup, disabling every button. Resetting on currentBreakLogId === null
+  // covers all the paths into a fresh popup display.
+  useEffect(() => {
+    if (state.currentBreakLogId === null) {
+      setSubmitting(false);
+      setError(null);
+    }
+  }, [state.currentBreakLogId]);
 
   // Gate: Timer mode never gets the popup.
   if (state.mode === 'timer') return null;
