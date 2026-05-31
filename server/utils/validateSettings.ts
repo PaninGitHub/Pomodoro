@@ -2,7 +2,15 @@ import type { PartialSettings } from '../types/db';
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const KNOWN_THEMES = ['bw-dark'] as const;
+// Must mirror client/src/themes/themeConfig.ts THEMES exactly (Phase 6 Slice B).
+// Adding a new theme = update both lists + add a CSS block in client/src/theme.css.
+const KNOWN_THEMES = [
+  'bw-dark',
+  'amber-opus',
+  'high-contrast',
+  'parchment',
+  'summer-sunset',
+] as const;
 const KNOWN_FONTS = ['Inter', 'Open Sans', 'DM Mono', 'Merriweather', 'Lora', 'EB Garamond', 'Caveat'] as const;
 const KNOWN_HOUR_FORMATS = ['12h', '24h'] as const;
 const KNOWN_WEEK_STARTS = ['sunday', 'monday'] as const;

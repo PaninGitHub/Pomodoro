@@ -53,6 +53,10 @@ describe('validatePartialSettings', () => {
   });
   it('validates theme is a known theme key', () => {
     expect(validatePartialSettings({ theme: 'bw-dark' }).ok).toBe(true);
+    expect(validatePartialSettings({ theme: 'amber-opus' }).ok).toBe(true);
+    expect(validatePartialSettings({ theme: 'high-contrast' }).ok).toBe(true);
+    expect(validatePartialSettings({ theme: 'parchment' }).ok).toBe(true);
+    expect(validatePartialSettings({ theme: 'summer-sunset' }).ok).toBe(true);
     expect(validatePartialSettings({ theme: 'unknown' }).ok).toBe(false);
   });
   it('validates font is a known font key', () => {

@@ -1,12 +1,9 @@
 import { useSettings } from '../useSettings';
 import { FONTS } from '../../fonts/fontConfig';
+import { THEMES } from '../../themes/themeConfig';
 
 const labelCls = 'flex items-center gap-2 text-sm text-text-secondary';
 const selectCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary';
-
-const THEMES = [
-  { value: 'bw-dark', label: 'Black & White (Dark)' },
-];
 
 export function AppearanceSettings(): JSX.Element {
   const { settings, updateSettings } = useSettings();
@@ -27,7 +24,7 @@ export function AppearanceSettings(): JSX.Element {
         <select value={settings.theme}
                 onChange={(e) => updateSettings({ theme: e.target.value })}
                 className={selectCls}>
-          {THEMES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+          {THEMES.map((t) => (<option key={t.key} value={t.key}>{t.label}</option>))}
         </select>
       </label>
 
