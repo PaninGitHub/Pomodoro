@@ -69,6 +69,13 @@ export interface TimerState {
   // / pre-START. Set by TimerContext effect after POST /api/sessions
   // resolves; cleared on END_SESSION / ABANDON.
   currentSessionId: string | null;
+  // Live break_logs row id for the in-progress break period (F-17). Set
+  // by the BreakActivityPopup after POST /api/break-logs resolves.
+  // Cleared by TimerContext's break-end watcher after PATCHing break_ended_at,
+  // and defensively in END_SESSION / ABANDON / session-reflection-submitted.
+  // Null when not in a break OR when the user chose "Skip break entirely"
+  // (no log row was created).
+  currentBreakLogId: string | null;
   // Reflection state (Phase 3 Rollout 3).
   // reflectionType + reflectionPeriodNumber populated while status='reflecting'.
   // nextPeriodKindAfterReflection is stashed by WORK_PERIOD_DONE so the
@@ -117,6 +124,7 @@ export const initialTimerState: TimerState = {
   freestyleTargetEnabled: true,
   timerDurationMs: DEFAULT_TIMER_MINUTES * 60 * 1000,
   currentSessionId: null,
+  currentBreakLogId: null,
   reflectionType: null,
   reflectionPeriodNumber: null,
   nextPeriodKindAfterReflection: null,
@@ -153,6 +161,7 @@ export type TimerAction =
   | { type: 'FREESTYLE_START_BREAK'; now: number }
   | { type: 'FREESTYLE_SKIP_BREAK'; now: number }
   | { type: 'SET_SESSION_ID'; sessionId: string | null }
+  | { type: 'SET_BREAK_LOG_ID'; logId: string | null }
   | { type: 'WORK_PERIOD_DONE'; now: number; nextPeriodKind: NextPeriodKind }
   | { type: 'END_SESSION_WITH_REFLECTION' }
   | { type: 'REFLECTION_SUBMITTED' }
@@ -302,6 +311,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
         pomodoro: null,
         freestyle: null,
         currentSessionId: null,
+        currentBreakLogId: null,
         reflectionType: null,
         reflectionPeriodNumber: null,
         nextPeriodKindAfterReflection: null,
@@ -310,6 +320,8 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       };
     case 'SET_SESSION_ID':
       return { ...state, currentSessionId: action.sessionId };
+    case 'SET_BREAK_LOG_ID':
+      return { ...state, currentBreakLogId: action.logId };
 
     // ============================================================
     // Reflection (Phase 3 Rollout 3)
@@ -378,6 +390,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
           pomodoro: null,
           freestyle: null,
           currentSessionId: null,
+          currentBreakLogId: null,
           reflectionType: null,
           reflectionPeriodNumber: null,
           nextPeriodKindAfterReflection: null,

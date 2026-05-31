@@ -662,3 +662,111 @@ describe('timerReducer — reflection status (Phase 3 Rollout 3)', () => {
     expect(s2.sessionTasksSnapshot).toEqual([{ id: 'a', name: 'New name' }]);
   });
 });
+
+// ============================================================
+// Phase 4 — Break-log lifecycle (F-17)
+// ============================================================
+//
+// currentBreakLogId tracks the in-progress break_logs row id so the
+// TimerContext effect can PATCH break_ended_at when the break period
+// ends. The reducer's responsibility is narrow: provide the SET action,
+// initialize null, and clear in the same session-end cases that already
+// clear currentSessionId. The transition-out-of-break clear happens in
+// TimerContext via dispatch, not in the reducer (mirrors how the
+// session-id clear works for natural period transitions).
+
+describe('timerReducer — currentBreakLogId (Phase 4)', () => {
+  it('initial state has currentBreakLogId null', () => {
+    expect(initialTimerState.currentBreakLogId).toBeNull();
+  });
+
+  it('SET_BREAK_LOG_ID sets the id from null', () => {
+    const s = timerReducer(initialTimerState, {
+      type: 'SET_BREAK_LOG_ID',
+      logId: 'log-uuid-1',
+    });
+    expect(s.currentBreakLogId).toBe('log-uuid-1');
+  });
+
+  it('SET_BREAK_LOG_ID clears the id when passed null', () => {
+    const withId: TimerState = { ...initialTimerState, currentBreakLogId: 'log-uuid-1' };
+    const s = timerReducer(withId, { type: 'SET_BREAK_LOG_ID', logId: null });
+    expect(s.currentBreakLogId).toBeNull();
+  });
+
+  it('SET_BREAK_LOG_ID does not clobber currentSessionId or other state', () => {
+    const populated: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'running',
+      currentSessionId: 'session-uuid',
+      pomodoro: { periodType: 'short_break', workCount: 1 },
+    };
+    const s = timerReducer(populated, { type: 'SET_BREAK_LOG_ID', logId: 'log-1' });
+    expect(s.currentBreakLogId).toBe('log-1');
+    expect(s.currentSessionId).toBe('session-uuid');
+    expect(s.status).toBe('running');
+    expect(s.pomodoro).toEqual({ periodType: 'short_break', workCount: 1 });
+  });
+
+  it('END_SESSION clears currentBreakLogId', () => {
+    const inBreak: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'running',
+      currentBreakLogId: 'log-1',
+      pomodoro: { periodType: 'short_break', workCount: 1 },
+    };
+    const s = timerReducer(inBreak, { type: 'END_SESSION' });
+    expect(s.status).toBe('idle');
+    expect(s.currentBreakLogId).toBeNull();
+  });
+
+  it('ABANDON clears currentBreakLogId', () => {
+    const inBreak: TimerState = {
+      ...initialTimerState,
+      mode: 'freestyle',
+      status: 'running',
+      currentBreakLogId: 'log-2',
+      freestyle: { periodType: 'break', targetMs: 0, targetReached: false, bankedMs: 0, prompt: 'none' },
+    };
+    const s = timerReducer(inBreak, { type: 'ABANDON' });
+    expect(s.status).toBe('idle');
+    expect(s.currentBreakLogId).toBeNull();
+  });
+
+  it('REFLECTION_SUBMITTED on session reflection clears currentBreakLogId', () => {
+    const sessionReflecting: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'session',
+      currentBreakLogId: 'log-3',
+      currentSessionId: 'session-1',
+    };
+    const s = timerReducer(sessionReflecting, { type: 'REFLECTION_SUBMITTED' });
+    expect(s.status).toBe('idle');
+    expect(s.currentBreakLogId).toBeNull();
+    expect(s.currentSessionId).toBeNull();
+  });
+
+  it('REFLECTION_SUBMITTED on per-period reflection does NOT clear currentBreakLogId', () => {
+    // Per-period reflection transitions to 'completed' but the break may
+    // still be in flight (autoStart off → user clicks Start to begin break).
+    // TimerContext owns the clear on transition out of break.
+    const perPeriodReflecting: TimerState = {
+      ...initialTimerState,
+      mode: 'pomodoro',
+      status: 'reflecting',
+      reflectionType: 'per_period',
+      reflectionPeriodNumber: 1,
+      nextPeriodKindAfterReflection: 'short_break',
+      currentBreakLogId: 'log-4',
+      pomodoro: { periodType: 'work', workCount: 0 },
+    };
+    const s = timerReducer(perPeriodReflecting, { type: 'REFLECTION_SUBMITTED' });
+    expect(s.status).toBe('completed');
+    expect(s.currentBreakLogId).toBe('log-4');
+  });
+});
+

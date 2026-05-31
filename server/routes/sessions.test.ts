@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import postgres from 'postgres';
-import path from 'node:path';
 import express from 'express';
 import request from 'supertest';
-import { runMigrations } from '../db/migrate';
 import { buildSessionsRouter } from './sessions';
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL;
@@ -31,15 +29,10 @@ describe.skipIf(SKIP)('Sessions endpoints', () => {
   let userIdA: string;
   let userIdB: string;
 
-  beforeAll(async () => {
+  beforeAll(() => {
+    // Schema is migrated once per session by vitest globalSetup
+    // (db/testGlobalSetup.ts).
     sql = postgres(TEST_DB_URL!, { prepare: false });
-    await sql`DROP TABLE IF EXISTS timer_sessions CASCADE`;
-    await sql`DROP TABLE IF EXISTS tasks CASCADE`;
-    await sql`DROP TABLE IF EXISTS settings CASCADE`;
-    await sql`DROP TABLE IF EXISTS _migrations CASCADE`;
-    await sql`DROP TABLE IF EXISTS session CASCADE`;
-    await sql`DROP TABLE IF EXISTS users CASCADE`;
-    await runMigrations(sql, path.resolve(__dirname, '../db/migrations'));
   });
 
   afterAll(async () => {

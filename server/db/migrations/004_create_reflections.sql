@@ -1,11 +1,17 @@
 -- 004_create_reflections.sql
 -- Per Batch D §12.8 with correction D-04 applied (tasks_snapshot
 -- per-entry shape extended with added_during_period boolean).
+--
+-- FK ordering note: session_id is the column only here. The FK to
+-- timer_sessions(id) is added in migration 015 because timer_sessions
+-- is created in migration 009, which sorts after 004. The migration
+-- runner orders files alphabetically and would fail on a fresh DB if
+-- this CREATE TABLE referenced a not-yet-existing table.
 
 CREATE TABLE IF NOT EXISTS reflections (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  session_id      UUID         NOT NULL REFERENCES timer_sessions(id) ON DELETE CASCADE,
+  session_id      UUID         NOT NULL,
   type            VARCHAR(20)  NOT NULL CHECK (type IN ('per_period', 'session')),
   period_number   INTEGER      NULL,
   focus_rating    INTEGER      NULL CHECK (focus_rating BETWEEN 1 AND 4),
