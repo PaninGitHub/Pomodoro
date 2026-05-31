@@ -14,3 +14,15 @@ export interface ClientBreakActivity {
 export const ACTIVITY_NAME_MAX = 64;
 export const ACTIVITY_TIME_ESTIMATE_MIN = 1;
 export const ACTIVITY_TIME_ESTIMATE_MAX = 1440;
+
+// Client-side shape for a break_logs row. Mirrors the server's
+// PublicBreakLog (server/types/db.ts). Date fields arrive as ISO strings
+// over JSON — convert at the use-site when comparing as Date.
+export interface ClientBreakLog {
+  id: string;
+  session_id: string;
+  activity_id: string | null;
+  activity_name: string | null;
+  break_started_at: string;
+  break_ended_at: string | null;
+}
