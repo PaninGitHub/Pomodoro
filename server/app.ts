@@ -18,6 +18,7 @@ import { buildPromptsRouter } from './routes/prompts';
 import { buildUserRouter } from './routes/user';
 import { buildActivitiesRouter } from './routes/activities';
 import { buildBreakLogsRouter } from './routes/breakLogs';
+import { buildReportsRouter } from './routes/reports';
 import { configurePassport } from './auth/passport';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -86,6 +87,7 @@ export function buildApp(config: Config, sql: postgres.Sql): Express {
   app.use('/api/user', buildUserRouter(sql));
   app.use('/api/activities', buildActivitiesRouter(sql));
   app.use('/api/break-logs', buildBreakLogsRouter(sql));
+  app.use('/api/reports', buildReportsRouter(sql));
 
   // 9. error handler — must be last
   app.use(errorHandler);
