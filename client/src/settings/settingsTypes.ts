@@ -29,6 +29,9 @@ export interface Settings {
   show_hours: boolean;
   week_start: 'sunday' | 'monday';
   layout_density: 'auto' | 'tabs' | 'collapsible';
+  modal_size: 'small' | 'medium' | 'large';
+  shortcuts_enabled: boolean;
+  shortcut_bindings: Record<string, string | null> | null;
 }
 
 export type PartialSettings = Partial<Settings>;
@@ -63,4 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   show_hours: true,
   week_start: 'sunday',
   layout_density: 'auto',
+  modal_size: 'medium',
+  shortcuts_enabled: true,
+  shortcut_bindings: null,
 };

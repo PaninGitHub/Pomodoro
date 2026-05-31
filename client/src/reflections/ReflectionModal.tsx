@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTimer } from '../timer/state/useTimer';
 import { useTasks } from '../tasks/useTasks';
 import { useReflectionPrompts } from './useReflectionPrompts';
@@ -12,7 +12,20 @@ export type FocusRating = 1 | 2 | 3 | 4;
 // components so React's mount/unmount lifecycle naturally clears form
 // state between reflections — no manual reset effect needed.
 export function ReflectionModal(): JSX.Element | null {
-  const { state } = useTimer();
+  const { state, dispatch } = useTimer();
+
+  // Esc dismisses the reflection — same effect as clicking "Skip" in
+  // either variant. Hooked here (top-level) so both variants inherit it
+  // without duplicating the listener.
+  useEffect(() => {
+    if (state.status !== 'reflecting') return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') dispatch({ type: 'REFLECTION_SKIPPED' });
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [state.status, dispatch]);
+
   if (state.status !== 'reflecting') return null;
   if (state.reflectionType === 'per_period') return <PerPeriodVariant />;
   if (state.reflectionType === 'session') return <SessionVariant />;

@@ -39,50 +39,36 @@ function shortDate(iso: string): string {
 }
 
 // =============================================================================
-// Page entry — auth gate
+// Presentational content with auth gate.
+// Used by both ReportsPage (full route) and the Phase 5.5 LogsModalView
+// "reports" tab. Auth gate stays in here (defense in depth) — guests
+// deeplinking to /logs/reports see the sign-in CTA inside the modal.
+// No outer max-width or heading; the shell (page vs modal) provides those.
 
-export function ReportsPage(): JSX.Element {
+export function ReportsContent(): JSX.Element {
   const { state: authState } = useAuth();
 
   if (authState.kind === 'loading') {
-    return (
-      <div className="w-full max-w-4xl mx-auto p-4 md:p-8">
-        <p className="text-sm text-text-secondary italic">Loading…</p>
-      </div>
-    );
+    return <p className="text-sm text-text-secondary italic">Loading…</p>;
   }
-
   if (authState.kind !== 'signed_in') {
-    // Defense-in-depth: F-28 Acceptance Criterion "hidden entirely for
-    // guest users". AppLayout also conditionally hides the nav link, but
-    // this guard means deep-linking /reports as a guest renders a
-    // sign-in CTA instead of an empty page or 401 noise.
     return (
-      <div className="w-full max-w-4xl mx-auto p-4 md:p-8 flex flex-col gap-4">
-        <h2 className="text-2xl text-text-primary">Reports</h2>
-        <p className="text-sm text-text-secondary">
-          Reports are available once you sign in.
-        </p>
-      </div>
+      <p className="text-sm text-text-secondary">
+        Reports are available once you sign in.
+      </p>
     );
   }
-
-  return <ReportsPageInner />;
+  return <ReportsContentInner />;
 }
 
-// =============================================================================
-// Authenticated content
-
-function ReportsPageInner(): JSX.Element {
+function ReportsContentInner(): JSX.Element {
   const [bucket, setBucket] = useState<ReportBucket>('day');
   const streak = useStreak();
   const focus = useFocusReport({ bucket });
   const time = useTimeReport({ bucket });
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 md:p-8 flex flex-col gap-6">
-      <h2 className="text-2xl text-text-primary">Reports</h2>
-
+    <div className="flex flex-col gap-6">
       <StreakCard
         data={streak.data}
         loading={streak.loading}
@@ -110,6 +96,10 @@ function ReportsPageInner(): JSX.Element {
     </div>
   );
 }
+
+// ReportsPage (full-route wrapper) deleted in Phase 5.5 task 19 — the
+// old /reports route now redirects to /logs/reports (modal). Content
+// component above stays, used by LogsModalView.
 
 // =============================================================================
 // Streak card

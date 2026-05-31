@@ -14,7 +14,11 @@ import { useSettings } from '../settings/useSettings';
 import { BreakActivityRow } from './BreakActivityRow';
 import { AddBreakActivityForm } from './AddBreakActivityForm';
 
-export function BreakActivitiesPage(): JSX.Element {
+// Presentational content — used by both BreakActivitiesPage (full route)
+// and the Phase 5.5 BreakActivitiesModal (TimerActionBar icon button).
+// No outer max-width or heading; the shell provides those. Counter stays
+// in Content because it's useful information in either shell.
+export function BreakActivitiesContent(): JSX.Element {
   const { activities, reorderActivities } = useBreakActivities();
   const { settings } = useSettings();
   const sensors = useSensors(
@@ -38,18 +42,19 @@ export function BreakActivitiesPage(): JSX.Element {
   const limit = settings.break_activity_limit;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 flex flex-col gap-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-2xl text-text-primary">Break activities</h2>
-        <span className="text-xs text-text-secondary" aria-label={`${activities.length} of ${limit} activities used`}>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-text-secondary">
+          Pick from this list when a break starts (Pomodoro and Freestyle modes).
+          Adjust the limit in Settings → Timer.
+        </p>
+        <span
+          className="text-xs text-text-secondary whitespace-nowrap"
+          aria-label={`${activities.length} of ${limit} activities used`}
+        >
           {activities.length} / {limit}
         </span>
       </div>
-
-      <p className="text-sm text-text-secondary">
-        Pick from this list when a break starts (Pomodoro and Freestyle modes).
-        Adjust the limit in Settings → Timer.
-      </p>
 
       {activities.length === 0 ? (
         <p className="text-sm text-text-secondary italic">
@@ -69,3 +74,7 @@ export function BreakActivitiesPage(): JSX.Element {
     </div>
   );
 }
+
+// BreakActivitiesPage (full-route wrapper) deleted in Phase 5.5 task 19 —
+// the old /break-activities route now redirects to home. Content
+// component above stays, used by BreakActivitiesModal (TimerActionBar icon).

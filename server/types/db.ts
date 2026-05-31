@@ -61,6 +61,9 @@ export interface Settings {
   show_hours: boolean;
   week_start: 'sunday' | 'monday';
   layout_density: 'auto' | 'tabs' | 'collapsible';
+  modal_size: 'small' | 'medium' | 'large';
+  shortcuts_enabled: boolean;
+  shortcut_bindings: Record<string, string | null> | null;
   updated_at: Date;
 }
 

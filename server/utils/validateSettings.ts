@@ -7,6 +7,33 @@ const KNOWN_FONTS = ['Inter', 'Open Sans', 'DM Mono', 'Merriweather', 'Lora', 'E
 const KNOWN_HOUR_FORMATS = ['12h', '24h'] as const;
 const KNOWN_WEEK_STARTS = ['sunday', 'monday'] as const;
 const KNOWN_LAYOUT_DENSITIES = ['auto', 'tabs', 'collapsible'] as const;
+const KNOWN_MODAL_SIZES = ['small', 'medium', 'large'] as const;
+
+const MAX_ACTION_ID_LEN = 64;
+const MAX_BINDING_LEN = 50;
+
+function validateShortcutBindings(v: unknown): Result<Record<string, string | null> | null> {
+  // null = "use built-in defaults". Empty object = "no overrides" (also
+  // effectively defaults). Object = partial overrides keyed by action_id.
+  // Server only enforces structural shape; the client owns action_id
+  // canonicality and silently ignores stale overrides for removed actions.
+  if (v === null) return { ok: true, value: null };
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    return { ok: false, error: 'shortcut_bindings must be an object or null.' };
+  }
+  const out: Record<string, string | null> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof k !== 'string' || k.length === 0 || k.length > MAX_ACTION_ID_LEN) {
+      return { ok: false, error: `Invalid action id: ${k}.` };
+    }
+    if (val === null) { out[k] = null; continue; }
+    if (typeof val !== 'string' || val.length === 0 || val.length > MAX_BINDING_LEN) {
+      return { ok: false, error: `Binding for ${k} must be a non-empty string or null.` };
+    }
+    out[k] = val;
+  }
+  return { ok: true, value: out };
+}
 const KNOWN_ALARM_SOUNDS = ['bell', 'bird', 'digital', 'kitchen', 'custom'] as const;
 const KNOWN_LAST_SOUND = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'] as const;
 const CUSTOM_URL_EXTS = /\.(mp3|ogg|wav|m4a|webm)$/i;
@@ -88,6 +115,9 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   show_hours:               (v) => boolField(v, 'show_hours'),
   week_start:               (v) => enumOf(v, KNOWN_WEEK_STARTS, 'week_start'),
   layout_density:           (v) => enumOf(v, KNOWN_LAYOUT_DENSITIES, 'layout_density'),
+  modal_size:               (v) => enumOf(v, KNOWN_MODAL_SIZES, 'modal_size'),
+  shortcuts_enabled:        (v) => boolField(v, 'shortcuts_enabled'),
+  shortcut_bindings:        validateShortcutBindings,
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_VALIDATORS) as (keyof PartialSettings)[];

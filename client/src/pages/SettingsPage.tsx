@@ -7,6 +7,7 @@ import { AlarmSettings } from '../settings/groups/AlarmSettings';
 import { ReflectionSettings } from '../settings/groups/ReflectionSettings';
 import { AppearanceSettings } from '../settings/groups/AppearanceSettings';
 import { AccountSettings } from '../settings/groups/AccountSettings';
+import { ShortcutsSettings } from '../settings/groups/ShortcutsSettings';
 
 // Breakpoint: 1024px and above gets tabs by default. Below, collapsible.
 // Covers laptops + most tablet landscape orientations on the tabs side;
@@ -34,14 +35,15 @@ export function SettingsPage(): JSX.Element {
     settings.layout_density === 'collapsible' ? 'collapsible' :
     isDesktop ? 'tabs' : 'collapsible';
 
-  // Section order per user spec (Phase 4.5):
-  // Appearance → Timer → Alarm → Music → Reflections → Account
+  // Section order per user spec (Phase 4.5, with Shortcuts added Phase 5.5):
+  // Appearance → Timer → Alarm → Music → Reflections → Shortcuts → Account
   const sections: SettingsSection[] = [
     { id: 'appearance',  label: 'Appearance',  render: () => <AppearanceSettings /> },
     { id: 'timer',       label: 'Timer',       render: () => <TimerSettings /> },
     { id: 'alarm',       label: 'Alarm',       render: () => <AlarmSettings /> },
     { id: 'music',       label: 'Music',       render: () => <MusicPlaceholder /> },
     { id: 'reflections', label: 'Reflections', render: () => <ReflectionSettings /> },
+    { id: 'shortcuts',   label: 'Shortcuts',   render: () => <ShortcutsSettings /> },
   ];
   // Account section only when signed in -- AccountSettings itself also
   // gates internally, but excluding it here keeps the tab bar / collapsible

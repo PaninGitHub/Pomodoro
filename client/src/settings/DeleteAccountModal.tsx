@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Props {
   onClose: () => void;
@@ -8,6 +8,15 @@ export function DeleteAccountModal({ onClose }: Props): JSX.Element {
   const [typed, setTyped] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Esc closes the modal — project convention for all overlay modals.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const canConfirm = typed === 'DELETE' && !submitting;
 

@@ -1,18 +1,17 @@
 import { useEffect } from 'react';
+import { useSettings } from './useSettings';
+import { SHORTCUT_ACTIONS, effectiveBindings } from '../timer/state/shortcutActions';
 
-const SHORTCUTS = [
-  { label: 'Space',  action: 'Start / Pause timer' },
-  { label: 'R',      action: 'Abandon / reset period' },
-  { label: 'N',      action: 'Skip to next period' },
-  { label: 'S',      action: 'Open settings' },
-  { label: 'M',      action: 'Toggle music (Phase 7)' },
-  { label: 'T',      action: 'Open reports (Phase 5)' },
-  { label: 'Esc',    action: 'Close modal / popup' },
-];
+// Help dialog — reads the live merged bindings (defaults + user overrides
+// + master toggle) from settings, so it always reflects what's actually
+// bound. Disabled actions render as "—" instead of a key.
 
 interface Props { onClose: () => void; }
 
 export function KeyboardShortcutsModal({ onClose }: Props): JSX.Element {
+  const { settings } = useSettings();
+  const bindings = effectiveBindings(settings.shortcut_bindings);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
@@ -24,18 +23,35 @@ export function KeyboardShortcutsModal({ onClose }: Props): JSX.Element {
          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
          onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
-           className="bg-bg-primary border border-border rounded p-6 max-w-md w-full flex flex-col gap-4">
+           className="bg-bg-primary border border-border rounded p-6 max-w-md w-full flex flex-col gap-4 max-h-[80vh] overflow-auto">
         <h3 id="shortcuts-title" className="text-lg text-text-primary">Keyboard shortcuts</h3>
+        {!settings.shortcuts_enabled && (
+          <p className="text-xs text-text-secondary italic">
+            Shortcuts are currently disabled in Settings → Shortcuts.
+          </p>
+        )}
         <table className="text-sm text-text-secondary">
           <tbody>
-            {SHORTCUTS.map((s) => (
-              <tr key={s.label}>
-                <td className="font-mono text-text-primary pr-4 py-1">{s.label}</td>
-                <td className="py-1">{s.action}</td>
-              </tr>
-            ))}
+            {SHORTCUT_ACTIONS.map((a) => {
+              const key = bindings.get(a.id);
+              return (
+                <tr key={a.id}>
+                  <td className="font-mono text-text-primary pr-4 py-1 whitespace-nowrap">
+                    {key ?? <span className="text-text-secondary italic">—</span>}
+                  </td>
+                  <td className="py-1">{a.label}</td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td className="font-mono text-text-primary pr-4 py-1">Esc</td>
+              <td className="py-1">Close modal / popup</td>
+            </tr>
           </tbody>
         </table>
+        <p className="text-xs text-text-secondary">
+          Rebind any of these in Settings → Shortcuts.
+        </p>
         <div className="flex justify-end">
           <button type="button" onClick={onClose}
                   className="px-4 py-2 rounded border border-border bg-bg-secondary hover:bg-bg-tertiary text-text-primary">

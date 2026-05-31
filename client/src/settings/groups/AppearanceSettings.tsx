@@ -82,6 +82,17 @@ export function AppearanceSettings(): JSX.Element {
           <option value="collapsible">Collapsible (vertical)</option>
         </select>
       </label>
+
+      <label className={labelCls}>
+        Logs modal size
+        <select value={settings.modal_size}
+                onChange={(e) => updateSettings({ modal_size: e.target.value as 'small' | 'medium' | 'large' })}
+                className={selectCls}>
+          <option value="small">Small (~60% of screen)</option>
+          <option value="medium">Medium (~80% of screen)</option>
+          <option value="large">Large (~95% of screen)</option>
+        </select>
+      </label>
     </>
   );
 }

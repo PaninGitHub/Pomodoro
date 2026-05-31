@@ -1,34 +1,33 @@
 import { Link, Outlet } from 'react-router-dom';
 import { AuthWidget } from './AuthWidget';
 import { useAuth } from '../auth/useAuth';
+import { useGlobalHotkeys } from '../timer/state/useGlobalHotkeys';
+import { links } from '../routes';
 
 export function AppLayout(): JSX.Element {
   const { state: authState } = useAuth();
   const isSignedIn = authState.kind === 'signed_in';
+  // Phase 5.5 — global keybinds documented in KeyboardShortcutsModal.
+  // Mounted here because it's the always-rendered parent of all routes
+  // (lives inside RouterProvider so useNavigate works).
+  useGlobalHotkeys();
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border">
         {/* TODO(phase-?-logo-asset): replace text wordmark with logo image
             when project owner provides asset (Batch F OQ-04). Place at /logo.svg. */}
-        <Link to="/" className="text-lg font-semibold text-text-primary no-underline">
+        <Link to={links.home()} className="text-lg font-semibold text-text-primary no-underline">
           Simplidoro
         </Link>
         <div className="flex items-center gap-4">
-          <Link to="/break-activities" className="text-text-secondary hover:text-text-primary text-sm">
-            Breaks
-          </Link>
-          <Link to="/break-logs" className="text-text-secondary hover:text-text-primary text-sm">
-            Break log
-          </Link>
-          <Link to="/reflections" className="text-text-secondary hover:text-text-primary text-sm">
-            Reflections
-          </Link>
-          {/* F-28 spec line 1561: Reports tab hidden entirely for guests.
-              Page itself also gates as defense in depth. */}
+          {/* Phase 5.5 — single Logs trigger replaces Break log / Reflections
+              / Reports. Auth-gated because Reports (the default tab) is
+              authenticated-only per F-28 spec line 1561. Break log and
+              Reflections also have no value for guests today. */}
           {isSignedIn && (
-            <Link to="/reports" className="text-text-secondary hover:text-text-primary text-sm">
-              Reports
+            <Link to={links.logs('reports')} className="text-text-secondary hover:text-text-primary text-sm">
+              Logs
             </Link>
           )}
           <Link to="/settings" className="text-text-secondary hover:text-text-primary text-sm">

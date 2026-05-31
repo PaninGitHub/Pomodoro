@@ -68,13 +68,15 @@ function formatDuration(startIso: string, endIso: string | null): string {
   return `${mins} min ${secs}s`;
 }
 
-export function BreakLogPage(): JSX.Element {
+// Presentational content — used by both BreakLogPage (full route) and the
+// Phase 5.5 LogsModalView "break" tab. No outer max-width or heading; the
+// shell (page vs modal) provides those.
+export function BreakLogContent(): JSX.Element {
   const { break_logs, loading, error } = useBreakLogsList();
   const groups = useMemo(() => groupByDay(break_logs), [break_logs]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 flex flex-col gap-4">
-      <h2 className="text-2xl text-text-primary">Break log</h2>
+    <div className="flex flex-col gap-4">
       <p className="text-sm text-text-secondary">
         Every break you took (Pomodoro and Freestyle modes), most recent first.
       </p>
@@ -125,3 +127,7 @@ export function BreakLogPage(): JSX.Element {
     </div>
   );
 }
+
+// BreakLogPage (full-route wrapper) deleted in Phase 5.5 task 19 — the
+// old /break-logs route now redirects to /logs/break (modal). Content
+// component above stays, used by LogsModalView.
