@@ -138,20 +138,44 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
   // the prior run. The effect reads the prior id from a ref because the
   // reducer (ABANDON / END_SESSION) clears currentSessionId in the same
   // tick, so we'd miss it if we read it from state at the moment of close.
+  //
+  // Pomodoro also reports periods_completed + total_work_mins so F-28
+  // Reports can render the streak / focused-time charts. Freestyle and
+  // Timer modes don't currently track a workCount (FreestyleState has
+  // no equivalent of PomodoroState.workCount) — those sessions land in
+  // the DB with periods_completed=0 and are excluded from the streak
+  // count. Tracked as a follow-up; not blocking F-28 ship.
   const prevSessionIdRef = useRef<string | null>(null);
+  const prevModeRef = useRef<TimerState['mode']>('pomodoro');
+  const prevWorkCountRef = useRef<number>(0);
+  const prevWorkMsRef = useRef<number>(0);
   useEffect(() => {
     if (authState.kind !== 'signed_in') return;
     const closing = state.status === 'idle' && prevSessionIdRef.current !== null;
     if (closing) {
       const closingId = prevSessionIdRef.current!;
+      const closingMode = prevModeRef.current;
+      const closingWorkCount = prevWorkCountRef.current;
+      const closingWorkMs = prevWorkMsRef.current;
       prevSessionIdRef.current = null;
+
+      const periodsCompleted = closingMode === 'pomodoro' ? closingWorkCount : 0;
+      const totalWorkMins = closingMode === 'pomodoro'
+        ? Math.round((closingWorkCount * closingWorkMs) / 60_000)
+        : null;
+
       void (async () => {
         try {
           await fetch(`/api/sessions/${closingId}`, {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ended_at: new Date().toISOString(), ended_early: true }),
+            body: JSON.stringify({
+              ended_at: new Date().toISOString(),
+              ended_early: true,
+              periods_completed: periodsCompleted,
+              ...(totalWorkMins !== null ? { total_work_mins: totalWorkMins } : {}),
+            }),
           });
         } catch {
           // Best-effort; the row stays open if the network fails. A
@@ -161,8 +185,18 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
     }
     if (state.currentSessionId !== null) {
       prevSessionIdRef.current = state.currentSessionId;
+      prevModeRef.current = state.mode;
+      prevWorkCountRef.current = state.pomodoro?.workCount ?? 0;
+      prevWorkMsRef.current = state.pomodoroWorkMs;
     }
-  }, [authState.kind, state.status, state.currentSessionId]);
+  }, [
+    authState.kind,
+    state.status,
+    state.currentSessionId,
+    state.mode,
+    state.pomodoro?.workCount,
+    state.pomodoroWorkMs,
+  ]);
 
   // Patch the break_logs row when a break period ends. "End" = transition
   // from active break (running/paused on a break period) to anything else
