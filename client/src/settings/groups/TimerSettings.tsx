@@ -17,9 +17,7 @@ export function TimerSettings(): JSX.Element {
   }
 
   return (
-    <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
-      <h3 className="text-lg text-text-primary">Timer</h3>
-
+    <>
       {/* All-mode settings — surfaced first since they affect every mode */}
       <div className={subheaderCls}>All Modes</div>
       <label className={labelCls}>
@@ -89,6 +87,6 @@ export function TimerSettings(): JSX.Element {
                onChange={(e) => onBool('freestyle_breaks_enabled', e.target.checked)} />
         Breaks enabled (when off, End Work ends the session immediately)
       </label>
-    </section>
+    </>
   );
 }
