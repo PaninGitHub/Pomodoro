@@ -8,6 +8,7 @@ import { ReflectionPromptsProvider } from './reflections/ReflectionContext';
 import { TasksProvider } from './tasks/TasksContext';
 import { BreakActivitiesProvider } from './breaks/BreakActivitiesContext';
 import { TimerProvider } from './timer/state/TimerContext';
+import { ModalTriggersProvider } from './ui/ModalTriggersContext';
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('#root not found in index.html');
@@ -20,7 +21,9 @@ createRoot(rootEl).render(
           <TasksProvider>
             <BreakActivitiesProvider>
               <TimerProvider>
-                <App />
+                <ModalTriggersProvider>
+                  <App />
+                </ModalTriggersProvider>
               </TimerProvider>
             </BreakActivitiesProvider>
           </TasksProvider>

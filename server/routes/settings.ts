@@ -5,14 +5,15 @@ import { validatePartialSettings } from '../utils/validateSettings';
 import type { PublicSettings } from '../types/db';
 
 // Column list mirrors server/types/db.ts PublicSettings exactly.
-// Update both when a new column is added (last touched: migration 014).
+// Update both when a new column is added (last touched: migration 018).
 const PUBLIC_COLUMNS = `
   work_duration, short_break_duration, long_break_duration, long_break_frequency,
   auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
   alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
   reflection_enabled, music_autoplay, music_volume, last_sound_selected,
   break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-  freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density
+  freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
+               shortcuts_enabled, shortcut_bindings
 `;
 
 function getUserId(req: Request): string {
@@ -24,28 +25,30 @@ function getSettingsHandler(sql: postgres.Sql) {
     try {
       const userId = getUserId(req);
       // Column list mirrors server/types/db.ts PublicSettings exactly.
-      // Update both when a new column is added (last touched: migration 016).
+      // Update both when a new column is added (last touched: migration 018).
       let rows = await sql<PublicSettings[]>`
         SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density
+               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
+               shortcuts_enabled, shortcut_bindings
         FROM settings WHERE user_id = ${userId}
       `;
       if (rows.length === 0) {
         // Lazy-create: settings should exist (upsertUser seeds), but be defensive.
         await sql`INSERT INTO settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
         // Column list mirrors server/types/db.ts PublicSettings exactly.
-        // Update both when a new column is added (last touched: migration 016).
+        // Update both when a new column is added (last touched: migration 018).
         rows = await sql<PublicSettings[]>`
           SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                  auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                  alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                  reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                  break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-                 freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density
+                 freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
+               shortcuts_enabled, shortcut_bindings
           FROM settings WHERE user_id = ${userId}
         `;
       }
@@ -68,19 +71,27 @@ function patchSettingsHandler(sql: postgres.Sql) {
       // postgres.js sql() accepts a plain object for partial UPDATE.
       // freestyle_ratio comes back from postgres.js NUMERIC(5,2) as a string;
       // we cast explicitly for the response shape.
-      const fields = { ...v.value, updated_at: new Date() };
+      // shortcut_bindings is the only JSONB column in this table — wrap
+      // its value with sql.json() so postgres.js binds it as jsonb instead
+      // of trying to coerce the object to a string.
+      const fields: Record<string, unknown> = { ...v.value, updated_at: new Date() };
+      if ('shortcut_bindings' in fields && fields.shortcut_bindings !== null) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fields.shortcut_bindings = sql.json(fields.shortcut_bindings as any);
+      }
       await sql`
         UPDATE settings SET ${sql(fields)} WHERE user_id = ${userId}
       `;
       // Column list mirrors server/types/db.ts PublicSettings exactly.
-      // Update both when a new column is added (last touched: migration 016).
+      // Update both when a new column is added (last touched: migration 018).
       const rows = await sql<PublicSettings[]>`
         SELECT work_duration, short_break_duration, long_break_duration, long_break_frequency,
                auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
                alarm_sound, alarm_volume, alarm_repeats, alarm_custom_url, browser_notifications,
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
-               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density
+               freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
+               shortcuts_enabled, shortcut_bindings
         FROM settings WHERE user_id = ${userId}
       `;
       res.status(200).json({ settings: rows[0] });

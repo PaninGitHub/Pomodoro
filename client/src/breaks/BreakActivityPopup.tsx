@@ -51,11 +51,13 @@ export function BreakActivityPopup(): JSX.Element | null {
     }
   }, [state.currentBreakLogId]);
 
-  // Gate: Timer mode never gets the popup.
-  if (state.mode === 'timer') return null;
-
-  // Gate: only show during an active break period.
-  const inActiveBreak =
+  // Visibility — single source of truth shared by the render gate below
+  // and the ESC effect. Computing it once at the top prevents the ESC
+  // listener from attaching globally (which would dispatch PERIOD_COMPLETE
+  // on every Esc press across the app, including while other modals are
+  // open).
+  const isShowing =
+    state.mode !== 'timer' &&
     (state.status === 'running' || state.status === 'paused') &&
     (
       (state.mode === 'pomodoro' && (
@@ -63,11 +65,20 @@ export function BreakActivityPopup(): JSX.Element | null {
         state.pomodoro?.periodType === 'long_break'
       )) ||
       (state.mode === 'freestyle' && state.freestyle?.periodType === 'break')
-    );
-  if (!inActiveBreak) return null;
+    ) &&
+    state.currentBreakLogId === null;
 
-  // Gate: already chosen (real id from POST or sentinel from guest path).
-  if (state.currentBreakLogId !== null) return null;
+  // Esc = "Skip break entirely" — only while the popup is actually shown.
+  useEffect(() => {
+    if (!isShowing) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') dispatch({ type: 'PERIOD_COMPLETE', now: Date.now() });
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isShowing, dispatch]);
+
+  if (!isShowing) return null;
 
   const isAuth = authState.kind === 'signed_in';
   const breakDurationMs = state.totalMs;

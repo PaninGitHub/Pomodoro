@@ -16,7 +16,10 @@ type View = 'day' | 'week' | 'month';
 const inputCls =
   'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary text-sm';
 
-export function ReflectionLogPage(): JSX.Element {
+// Presentational content — used by both ReflectionLogPage (full route) and
+// the Phase 5.5 LogsModalView "reflections" tab. No outer max-width or
+// heading; the shell (page vs modal) provides those.
+export function ReflectionLogContent(): JSX.Element {
   const { settings } = useSettings();
   const [filters, setFilters] = useState<ReflectionFilters>({});
   const [view, setView] = useState<View>('day');
@@ -49,9 +52,7 @@ export function ReflectionLogPage(): JSX.Element {
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 md:p-8 flex flex-col gap-6">
-      <h2 className="text-2xl text-text-primary">Reflections</h2>
-
+    <div className="flex flex-col gap-6">
       <FilterBar
         filters={filters}
         hasActiveFilter={hasActiveFilter}
@@ -107,6 +108,10 @@ export function ReflectionLogPage(): JSX.Element {
     </div>
   );
 }
+
+// ReflectionLogPage (full-route wrapper) deleted in Phase 5.5 task 19 —
+// the old /reflections route now redirects to /logs/reflections (modal).
+// Content component above stays, used by LogsModalView.
 
 // ===========================================================================
 // FilterBar
