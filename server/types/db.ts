@@ -122,3 +122,38 @@ export interface CustomPrompt {
   prompt_text: string;
   updated_at: Date;
 }
+
+// Phase 4 — F-16. Per Batch D §12.6.
+// Maximum per user enforced server-side via settings.break_activity_limit.
+export interface BreakActivity {
+  id: string;
+  user_id: string;
+  name: string;
+  time_estimate: number;
+  sort_order: number;
+  created_at: Date;
+}
+
+export type PublicBreakActivity = Pick<
+  BreakActivity,
+  'id' | 'name' | 'time_estimate' | 'sort_order'
+>;
+
+// Phase 4 — F-17. Per Batch D §12.9.
+// activity_id is nullable (user dismissed popup without selecting); also
+// ON DELETE SET NULL via migration 015 so a deleted activity preserves
+// the log row + denormalized activity_name.
+export interface BreakLog {
+  id: string;
+  user_id: string;
+  session_id: string;
+  activity_id: string | null;
+  activity_name: string | null;
+  break_started_at: Date;
+  break_ended_at: Date | null;
+}
+
+export type PublicBreakLog = Pick<
+  BreakLog,
+  'id' | 'session_id' | 'activity_id' | 'activity_name' | 'break_started_at' | 'break_ended_at'
+>;
