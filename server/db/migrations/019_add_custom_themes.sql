@@ -1,0 +1,32 @@
+-- 019_add_custom_themes.sql
+-- Phase 6 Slice B: user-defined custom themes.
+--
+-- custom_themes stores an array of theme definitions. Each entry is a
+-- single object:
+--   {
+--     "key":   "<user-slug>",        -- written to settings.theme + <html data-theme>
+--     "label": "<display name>",
+--     "slots": {
+--       "--color-bg-primary":     "#hex",
+--       "--color-bg-secondary":   "#hex",
+--       "--color-bg-tertiary":    "#hex",
+--       "--color-text-primary":   "#hex",
+--       "--color-text-secondary": "#hex",
+--       "--color-accent":         "#hex",
+--       "--color-border":         "#hex",
+--       "--color-timer":          "#hex"
+--     }
+--   }
+--
+-- The 3 fixed semantic colors (error/warning/success) are NOT user-
+-- editable per F-25 — they stay theme-invariant. The client merges
+-- built-in themes (from theme.css [data-theme] blocks) with custom
+-- themes (applied via inline CSS custom properties on <html>) when
+-- populating the Appearance dropdown.
+--
+-- Server only validates structural shape (key slug, hex format, length
+-- caps). Empty array is the default — no custom themes until the user
+-- creates one.
+
+ALTER TABLE settings
+  ADD COLUMN IF NOT EXISTS custom_themes JSONB NOT NULL DEFAULT '[]'::jsonb;

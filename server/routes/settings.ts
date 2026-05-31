@@ -5,7 +5,7 @@ import { validatePartialSettings } from '../utils/validateSettings';
 import type { PublicSettings } from '../types/db';
 
 // Column list mirrors server/types/db.ts PublicSettings exactly.
-// Update both when a new column is added (last touched: migration 018).
+// Update both when a new column is added (last touched: migration 019).
 const PUBLIC_COLUMNS = `
   work_duration, short_break_duration, long_break_duration, long_break_frequency,
   auto_start_breaks, auto_start_pomodoros, freestyle_ratio, freestyle_accumulate,
@@ -13,7 +13,7 @@ const PUBLIC_COLUMNS = `
   reflection_enabled, music_autoplay, music_volume, last_sound_selected,
   break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
   freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
-               shortcuts_enabled, shortcut_bindings
+               shortcuts_enabled, shortcut_bindings, custom_themes
 `;
 
 function getUserId(req: Request): string {
@@ -33,7 +33,7 @@ function getSettingsHandler(sql: postgres.Sql) {
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
                freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
-               shortcuts_enabled, shortcut_bindings
+               shortcuts_enabled, shortcut_bindings, custom_themes
         FROM settings WHERE user_id = ${userId}
       `;
       if (rows.length === 0) {
@@ -71,13 +71,18 @@ function patchSettingsHandler(sql: postgres.Sql) {
       // postgres.js sql() accepts a plain object for partial UPDATE.
       // freestyle_ratio comes back from postgres.js NUMERIC(5,2) as a string;
       // we cast explicitly for the response shape.
-      // shortcut_bindings is the only JSONB column in this table — wrap
-      // its value with sql.json() so postgres.js binds it as jsonb instead
-      // of trying to coerce the object to a string.
+      // JSONB columns must be wrapped with sql.json() so postgres.js binds
+      // them as jsonb instead of trying to coerce the value to a string.
       const fields: Record<string, unknown> = { ...v.value, updated_at: new Date() };
       if ('shortcut_bindings' in fields && fields.shortcut_bindings !== null) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         fields.shortcut_bindings = sql.json(fields.shortcut_bindings as any);
+      }
+      if ('custom_themes' in fields) {
+        // Always wrap — custom_themes is NOT NULL (default []), so the
+        // value is always an array, never null.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fields.custom_themes = sql.json(fields.custom_themes as any);
       }
       await sql`
         UPDATE settings SET ${sql(fields)} WHERE user_id = ${userId}
@@ -91,7 +96,7 @@ function patchSettingsHandler(sql: postgres.Sql) {
                reflection_enabled, music_autoplay, music_volume, last_sound_selected,
                break_activity_limit, theme, font, hour_format, timer_adjust_step_minutes,
                freestyle_breaks_enabled, show_avatar, freestyle_target_minutes, show_hours, week_start, layout_density, modal_size,
-               shortcuts_enabled, shortcut_bindings
+               shortcuts_enabled, shortcut_bindings, custom_themes
         FROM settings WHERE user_id = ${userId}
       `;
       res.status(200).json({ settings: rows[0] });

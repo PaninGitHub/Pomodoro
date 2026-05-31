@@ -51,13 +51,60 @@ describe('validatePartialSettings', () => {
     expect(validatePartialSettings({ alarm_custom_url: 'https://' + 'a'.repeat(2050) + '.mp3' }).ok).toBe(false);
     expect(validatePartialSettings({ alarm_custom_url: null }).ok).toBe(true); // null clears it
   });
-  it('validates theme is a known theme key', () => {
+  it('validates theme accepts built-ins and any slug-shaped string', () => {
+    // Built-in keys
     expect(validatePartialSettings({ theme: 'bw-dark' }).ok).toBe(true);
     expect(validatePartialSettings({ theme: 'amber-opus' }).ok).toBe(true);
     expect(validatePartialSettings({ theme: 'high-contrast' }).ok).toBe(true);
     expect(validatePartialSettings({ theme: 'parchment' }).ok).toBe(true);
     expect(validatePartialSettings({ theme: 'summer-sunset' }).ok).toBe(true);
-    expect(validatePartialSettings({ theme: 'unknown' }).ok).toBe(false);
+    // Custom slug — accepted at structural level; client owns the
+    // "does this resolve to a real custom theme entry" check.
+    expect(validatePartialSettings({ theme: 'my-custom' }).ok).toBe(true);
+    expect(validatePartialSettings({ theme: 'theme1' }).ok).toBe(true);
+    // Rejected: non-slug shapes
+    expect(validatePartialSettings({ theme: '' }).ok).toBe(false);
+    expect(validatePartialSettings({ theme: 'Has Spaces' }).ok).toBe(false);
+    expect(validatePartialSettings({ theme: 'UPPER' }).ok).toBe(false);
+    expect(validatePartialSettings({ theme: '-leading-dash' }).ok).toBe(false);
+    expect(validatePartialSettings({ theme: 'a'.repeat(33) }).ok).toBe(false);
+  });
+
+  it('validates custom_themes structure', () => {
+    const goodSlots = {
+      '--color-bg-primary':    '#1c1816',
+      '--color-bg-secondary':  '#2d2622',
+      '--color-bg-tertiary':   '#3f342d',
+      '--color-text-primary':  '#f4ecd8',
+      '--color-text-secondary':'#9c8a78',
+      '--color-accent':        '#cc785c',
+      '--color-border':        '#5a4a3c',
+      '--color-timer':         '#d4a574',
+    };
+    expect(validatePartialSettings({ custom_themes: [] }).ok).toBe(true);
+    expect(validatePartialSettings({
+      custom_themes: [{ key: 'mine', label: 'Mine', slots: goodSlots }],
+    }).ok).toBe(true);
+    // Reject: duplicate key with a built-in
+    expect(validatePartialSettings({
+      custom_themes: [{ key: 'bw-dark', label: 'Mine', slots: goodSlots }],
+    }).ok).toBe(false);
+    // Reject: bad slug
+    expect(validatePartialSettings({
+      custom_themes: [{ key: 'BadKey', label: 'Mine', slots: goodSlots }],
+    }).ok).toBe(false);
+    // Reject: missing slot
+    const missingSlot = { ...goodSlots } as Partial<typeof goodSlots>;
+    delete missingSlot['--color-timer'];
+    expect(validatePartialSettings({
+      custom_themes: [{ key: 'mine', label: 'Mine', slots: missingSlot }],
+    }).ok).toBe(false);
+    // Reject: invalid hex
+    expect(validatePartialSettings({
+      custom_themes: [{ key: 'mine', label: 'Mine', slots: { ...goodSlots, '--color-accent': 'red' } }],
+    }).ok).toBe(false);
+    // Reject: not an array
+    expect(validatePartialSettings({ custom_themes: 'no' }).ok).toBe(false);
   });
   it('validates font is a known font key', () => {
     expect(validatePartialSettings({ font: 'Inter' }).ok).toBe(true);
