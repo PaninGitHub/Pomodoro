@@ -21,9 +21,7 @@ export function AppearanceSettings(): JSX.Element {
   }
 
   return (
-    <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
-      <h3 className="text-lg text-text-primary">Appearance</h3>
-
+    <>
       <label className={labelCls}>
         Theme
         <select value={settings.theme}
@@ -73,6 +71,17 @@ export function AppearanceSettings(): JSX.Element {
           <option value="monday">Monday</option>
         </select>
       </label>
-    </section>
+
+      <label className={labelCls}>
+        Settings layout
+        <select value={settings.layout_density}
+                onChange={(e) => updateSettings({ layout_density: e.target.value as 'auto' | 'tabs' | 'collapsible' })}
+                className={selectCls}>
+          <option value="auto">Auto (tabs on wide screens, collapsible on narrow)</option>
+          <option value="tabs">Tabs (horizontal)</option>
+          <option value="collapsible">Collapsible (vertical)</option>
+        </select>
+      </label>
+    </>
   );
 }

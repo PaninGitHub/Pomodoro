@@ -19,6 +19,7 @@ Files are numbered by the table they create, mapped to Batch D §12 sub-sections
 | `013_add_show_hours.sql`          | (ALTER settings) | n/a     | Phase 3.5 (F1: HH:MM:SS vs MMM:SS timer format toggle) |
 | `014_add_week_start.sql`          | (ALTER settings) | n/a     | Phase 3.5 (F-10 prereq: week-start day for log viewer grouping) |
 | `015_add_session_and_activity_fks.sql` | (ALTER reflections + break_logs) | n/a | Phase 4 (FK ordering fix — see "FK ordering" below) |
+| `016_add_layout_density.sql`      | (ALTER settings) | n/a     | Phase 4.5 (Settings UX: tabs vs collapsible layout preference) |
 
 **Numbers correspond to the table.** Build phases may run migrations out
 of strict numeric order (Phase 2 runs 003 + 007 but skips 004–006 which

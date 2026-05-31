@@ -17,8 +17,19 @@ export function TimerSettings(): JSX.Element {
   }
 
   return (
-    <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
-      <h3 className="text-lg text-text-primary">Timer</h3>
+    <>
+      {/* All-mode settings — surfaced first since they affect every mode */}
+      <div className={subheaderCls}>All Modes</div>
+      <label className={labelCls}>
+        +/- adjust step (min)
+        <NumericInput value={settings.timer_adjust_step_minutes} defaultValue={DEFAULT_SETTINGS.timer_adjust_step_minutes}
+                      min={1} max={60} onSave={(n) => save('timer_adjust_step_minutes', n)} className={inputCls} />
+      </label>
+      <label className={labelCls}>
+        Break activities library limit
+        <NumericInput value={settings.break_activity_limit} defaultValue={DEFAULT_SETTINGS.break_activity_limit}
+                      min={1} max={30} onSave={(n) => save('break_activity_limit', n)} className={inputCls} />
+      </label>
 
       {/* Pomodoro-mode settings */}
       <div className={subheaderCls}>Pomodoro Mode</div>
@@ -76,19 +87,6 @@ export function TimerSettings(): JSX.Element {
                onChange={(e) => onBool('freestyle_breaks_enabled', e.target.checked)} />
         Breaks enabled (when off, End Work ends the session immediately)
       </label>
-
-      {/* All-mode settings */}
-      <div className={subheaderCls}>All Modes</div>
-      <label className={labelCls}>
-        +/- adjust step (min)
-        <NumericInput value={settings.timer_adjust_step_minutes} defaultValue={DEFAULT_SETTINGS.timer_adjust_step_minutes}
-                      min={1} max={60} onSave={(n) => save('timer_adjust_step_minutes', n)} className={inputCls} />
-      </label>
-      <label className={labelCls}>
-        Break activities library limit
-        <NumericInput value={settings.break_activity_limit} defaultValue={DEFAULT_SETTINGS.break_activity_limit}
-                      min={1} max={30} onSave={(n) => save('break_activity_limit', n)} className={inputCls} />
-      </label>
-    </section>
+    </>
   );
 }

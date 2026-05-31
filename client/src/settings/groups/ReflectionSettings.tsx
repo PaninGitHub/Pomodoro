@@ -60,9 +60,7 @@ export function ReflectionSettings(): JSX.Element {
   }
 
   return (
-    <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
-      <h3 className="text-lg text-text-primary">Reflection</h3>
-
+    <>
       <label className={labelCls}>
         <input
           type="checkbox"
@@ -106,7 +104,7 @@ export function ReflectionSettings(): JSX.Element {
           </div>
         </>
       )}
-    </section>
+    </>
   );
 }
 

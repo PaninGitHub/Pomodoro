@@ -60,6 +60,7 @@ export interface Settings {
   freestyle_target_minutes: number;
   show_hours: boolean;
   week_start: 'sunday' | 'monday';
+  layout_density: 'auto' | 'tabs' | 'collapsible';
   updated_at: Date;
 }
 

@@ -10,7 +10,13 @@
   --color-bg-secondary:  #141414;
   --color-bg-tertiary:   #1f1f1f;
   --color-text-primary:  #f5f5f5;
-  --color-text-secondary:#a0a0a0;
+  /* Brightened to #ebebeb (Phase 4.1) — pre-Phase-4.1 was #a0a0a0
+   * (8.55:1 on bg-primary), interim #d4d4d4 (13.85:1) still felt washed
+   * out. #ebebeb ≈ 17:1 — a barely-perceptible step down from
+   * --color-text-primary (#f5f5f5, 18.81:1). If a still-muted hint
+   * variant is needed later, add a separate --color-text-tertiary rather
+   * than walking this back. */
+  --color-text-secondary:#ebebeb;
   --color-accent:        #ffffff;
   --color-border:        #2e2e2e;
   --color-timer:         #ffffff;

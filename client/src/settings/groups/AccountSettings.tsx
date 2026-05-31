@@ -10,8 +10,7 @@ export function AccountSettings(): JSX.Element | null {
   if (state.kind !== 'signed_in') return null;
 
   return (
-    <section className="border border-border rounded p-4 bg-bg-secondary/30 flex flex-col gap-3">
-      <h3 className="text-lg text-text-primary">Account</h3>
+    <>
       <p className="text-sm text-text-secondary">
         Keyboard shortcuts moved to the keyboard icon below the timer (Phase 2 revision).
       </p>
@@ -20,6 +19,6 @@ export function AccountSettings(): JSX.Element | null {
         Delete account
       </button>
       {showDelete && <DeleteAccountModal onClose={() => setShowDelete(false)} />}
-    </section>
+    </>
   );
 }

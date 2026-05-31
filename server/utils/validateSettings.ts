@@ -6,6 +6,7 @@ const KNOWN_THEMES = ['bw-dark'] as const;
 const KNOWN_FONTS = ['Inter', 'Open Sans', 'DM Mono', 'Merriweather', 'Lora', 'EB Garamond', 'Caveat'] as const;
 const KNOWN_HOUR_FORMATS = ['12h', '24h'] as const;
 const KNOWN_WEEK_STARTS = ['sunday', 'monday'] as const;
+const KNOWN_LAYOUT_DENSITIES = ['auto', 'tabs', 'collapsible'] as const;
 const KNOWN_ALARM_SOUNDS = ['bell', 'bird', 'digital', 'kitchen', 'custom'] as const;
 const KNOWN_LAST_SOUND = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'] as const;
 const CUSTOM_URL_EXTS = /\.(mp3|ogg|wav|m4a|webm)$/i;
@@ -86,6 +87,7 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   freestyle_target_minutes: (v) => intRange(v, 1, 720, 'freestyle_target_minutes'),
   show_hours:               (v) => boolField(v, 'show_hours'),
   week_start:               (v) => enumOf(v, KNOWN_WEEK_STARTS, 'week_start'),
+  layout_density:           (v) => enumOf(v, KNOWN_LAYOUT_DENSITIES, 'layout_density'),
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_VALIDATORS) as (keyof PartialSettings)[];
