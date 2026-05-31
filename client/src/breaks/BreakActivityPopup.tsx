@@ -106,7 +106,13 @@ export function BreakActivityPopup(): JSX.Element | null {
       role="dialog"
       aria-modal="true"
       aria-label="Pick a break activity"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/75 p-4"
+      // bg-black/50 (not bg-bg-primary/75) — Tailwind's slash-opacity modifier
+      // only composes with palette colors that expose RGB channels. The
+      // bg-bg-primary token resolves to a hex var(--color-bg-primary) and
+      // silently drops the /opacity, producing a fully opaque near-black
+      // overlay that masks the inner card. Matches ReflectionModal.tsx's
+      // Overlay precedent.
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
       <div className="bg-bg-secondary border border-border rounded-lg p-6 max-w-md w-full flex flex-col gap-4">
         <div className="flex items-baseline justify-between">
