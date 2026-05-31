@@ -28,6 +28,7 @@ export interface Settings {
   freestyle_target_minutes: number;
   show_hours: boolean;
   week_start: 'sunday' | 'monday';
+  layout_density: 'auto' | 'tabs' | 'collapsible';
 }
 
 export type PartialSettings = Partial<Settings>;
@@ -61,4 +62,5 @@ export const DEFAULT_SETTINGS: Settings = {
   freestyle_target_minutes: 25,
   show_hours: true,
   week_start: 'sunday',
+  layout_density: 'auto',
 };
