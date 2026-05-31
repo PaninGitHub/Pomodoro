@@ -51,7 +51,12 @@ export function PerModeSettingsPopup({ onClose }: Props): JSX.Element {
       >
         <div className="flex items-center justify-between">
           <h3 id="per-mode-settings-title" className="text-lg text-text-primary">{title}</h3>
-          <button type="button" onClick={onClose} className="text-text-secondary hover:text-text-primary" aria-label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center w-11 h-11 leading-none text-text-secondary hover:text-text-primary"
+            aria-label="Close"
+          >
             ×
           </button>
         </div>

@@ -161,7 +161,7 @@ export function ShortcutsSettings(): JSX.Element {
                       onClick={() => clearBinding(action.id)}
                       aria-label={`Disable ${action.label}`}
                       title="Disable this shortcut"
-                      className="px-2 py-1 text-xs text-text-secondary hover:text-error"
+                      className="inline-flex items-center justify-center w-11 h-11 text-xs text-text-secondary hover:text-error"
                     >
                       ×
                     </button>

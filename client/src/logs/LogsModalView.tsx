@@ -38,7 +38,7 @@ export function LogsModalView({ activeTab }: Props): JSX.Element {
               to={links.logs(t)}
               role="tab"
               aria-selected={selected}
-              className={`px-4 py-3 text-sm border-b-2 ${
+              className={`inline-flex items-center px-4 min-h-[44px] text-sm border-b-2 ${
                 selected
                   ? 'border-accent text-text-primary'
                   : 'border-transparent text-text-secondary hover:text-text-primary'

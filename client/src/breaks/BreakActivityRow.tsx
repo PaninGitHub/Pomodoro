@@ -121,7 +121,7 @@ export function BreakActivityRow({ activity }: Props): JSX.Element {
       <button
         type="button"
         onClick={() => void deleteActivity(activity.id)}
-        className="text-text-secondary hover:text-error px-1"
+        className="inline-flex items-center justify-center w-11 h-11 -my-2 text-text-secondary hover:text-error"
         aria-label={`Delete ${activity.name}`}
       >
         ×

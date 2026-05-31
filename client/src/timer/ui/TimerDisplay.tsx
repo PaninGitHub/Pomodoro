@@ -172,8 +172,7 @@ export function TimerDisplay(): JSX.Element {
   return (
     <div
       className="flex items-baseline"
-      aria-live="polite"
-      aria-atomic="true"
+      role="timer"
       aria-label={
         showHoursSegment
           ? `${pad(hours)} hours ${pad(minutes)} minutes ${pad(seconds)} seconds`
