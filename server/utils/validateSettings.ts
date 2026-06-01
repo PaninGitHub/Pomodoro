@@ -1,8 +1,76 @@
-import type { PartialSettings } from '../types/db';
+import type { PartialSettings, CustomTheme } from '../types/db';
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const KNOWN_THEMES = ['bw-dark'] as const;
+// Must mirror client/src/themes/themeConfig.ts THEMES exactly (Phase 6 Slice B).
+// Adding a new built-in theme = update both lists + add a CSS block in
+// client/src/theme.css. User custom themes (settings.custom_themes) are
+// also accepted by theme validation — see acceptedThemeKeys() below.
+const KNOWN_THEMES = [
+  'bw-dark',
+  'amber-opus',
+  'high-contrast',
+  'parchment',
+  'summer-sunset',
+] as const;
+
+// Phase 6 Slice B — custom theme constraints.
+const MAX_CUSTOM_THEMES = 10;
+const CUSTOM_THEME_KEY_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;       // 1–32 chars, slug
+const CUSTOM_THEME_LABEL_MAX = 40;
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;                       // strict 6-digit hex
+const REQUIRED_SLOTS = [
+  '--color-bg-primary',
+  '--color-bg-secondary',
+  '--color-bg-tertiary',
+  '--color-text-primary',
+  '--color-text-secondary',
+  '--color-accent',
+  '--color-border',
+  '--color-timer',
+] as const;
+
+function validateCustomThemes(v: unknown): Result<CustomTheme[]> {
+  if (!Array.isArray(v)) {
+    return { ok: false, error: 'custom_themes must be an array.' };
+  }
+  if (v.length > MAX_CUSTOM_THEMES) {
+    return { ok: false, error: `custom_themes capped at ${MAX_CUSTOM_THEMES} entries.` };
+  }
+  const seenKeys = new Set<string>();
+  for (const KNOWN of KNOWN_THEMES) seenKeys.add(KNOWN); // built-in keys reserved
+  const out: CustomTheme[] = [];
+  for (const item of v) {
+    if (typeof item !== 'object' || item === null) {
+      return { ok: false, error: 'Each custom theme must be an object.' };
+    }
+    const t = item as Record<string, unknown>;
+    if (typeof t.key !== 'string' || !CUSTOM_THEME_KEY_RE.test(t.key)) {
+      return { ok: false, error: 'Custom theme key must be 1–32 chars, lowercase a–z 0–9 -, and start with a letter/digit.' };
+    }
+    if (seenKeys.has(t.key)) {
+      return { ok: false, error: `Custom theme key "${t.key}" duplicates a built-in or another custom theme.` };
+    }
+    seenKeys.add(t.key);
+    if (typeof t.label !== 'string' || t.label.length === 0 || t.label.length > CUSTOM_THEME_LABEL_MAX) {
+      return { ok: false, error: `Custom theme label must be 1–${CUSTOM_THEME_LABEL_MAX} characters.` };
+    }
+    if (typeof t.slots !== 'object' || t.slots === null) {
+      return { ok: false, error: `Custom theme "${t.key}" missing slots object.` };
+    }
+    const slots = t.slots as Record<string, unknown>;
+    const outSlots: Record<string, string> = {};
+    for (const slotName of REQUIRED_SLOTS) {
+      const val = slots[slotName];
+      if (typeof val !== 'string' || !HEX_COLOR_RE.test(val)) {
+        return { ok: false, error: `Custom theme "${t.key}" slot ${slotName} must be a #RRGGBB hex color.` };
+      }
+      outSlots[slotName] = val;
+    }
+    out.push({ key: t.key, label: t.label, slots: outSlots as CustomTheme['slots'] });
+  }
+  return { ok: true, value: out };
+}
 const KNOWN_FONTS = ['Inter', 'Open Sans', 'DM Mono', 'Merriweather', 'Lora', 'EB Garamond', 'Caveat'] as const;
 const KNOWN_HOUR_FORMATS = ['12h', '24h'] as const;
 const KNOWN_WEEK_STARTS = ['sunday', 'monday'] as const;
@@ -105,7 +173,20 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   music_volume:          (v) => intRange(v, 0, 100, 'music_volume'),
   last_sound_selected:   (v) => enumOf(v, KNOWN_LAST_SOUND, 'last_sound_selected'),
   break_activity_limit:  (v) => intRange(v, 1, 30, 'break_activity_limit'),
-  theme:                 (v) => enumOf(v, KNOWN_THEMES, 'theme'),
+  // Phase 6 Slice B — theme accepts either a known built-in key OR any
+  // slug-formatted string (matching the custom theme key constraint).
+  // Server only enforces structural shape; the client falls back to the
+  // default if the key doesn't resolve to a built-in or current
+  // custom_themes entry. Mirrors the shortcut_bindings convention where
+  // canonicality lives on the client.
+  theme: (v) => {
+    if (!isStr(v)) return { ok: false, error: 'theme must be a string.' };
+    if (KNOWN_THEMES.includes(v as typeof KNOWN_THEMES[number])) return { ok: true, value: v };
+    if (!CUSTOM_THEME_KEY_RE.test(v)) {
+      return { ok: false, error: `theme must be a known built-in or a slug (1–32 chars, lowercase a–z 0–9 -).` };
+    }
+    return { ok: true, value: v };
+  },
   font:                  (v) => enumOf(v, KNOWN_FONTS, 'font'),
   hour_format:           (v) => enumOf(v, KNOWN_HOUR_FORMATS, 'hour_format'),
   timer_adjust_step_minutes: (v) => intRange(v, 1, 60, 'timer_adjust_step_minutes'),
@@ -118,6 +199,7 @@ const FIELD_VALIDATORS: { [K in keyof PartialSettings]: FieldValidator<K> } = {
   modal_size:               (v) => enumOf(v, KNOWN_MODAL_SIZES, 'modal_size'),
   shortcuts_enabled:        (v) => boolField(v, 'shortcuts_enabled'),
   shortcut_bindings:        validateShortcutBindings,
+  custom_themes:            validateCustomThemes,
 };
 
 const KNOWN_FIELDS = Object.keys(FIELD_VALIDATORS) as (keyof PartialSettings)[];

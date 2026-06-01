@@ -64,7 +64,27 @@ export interface Settings {
   modal_size: 'small' | 'medium' | 'large';
   shortcuts_enabled: boolean;
   shortcut_bindings: Record<string, string | null> | null;
+  custom_themes: CustomTheme[];
   updated_at: Date;
+}
+
+// Phase 6 Slice B — user-defined themes. Persisted via migration 019.
+// `key` is the slug written to settings.theme + <html data-theme>; must be
+// unique across the user's custom themes AND distinct from built-in theme
+// keys (built-ins listed in server/utils/validateSettings.ts KNOWN_THEMES).
+export interface CustomTheme {
+  key: string;
+  label: string;
+  slots: {
+    '--color-bg-primary': string;
+    '--color-bg-secondary': string;
+    '--color-bg-tertiary': string;
+    '--color-text-primary': string;
+    '--color-text-secondary': string;
+    '--color-accent': string;
+    '--color-border': string;
+    '--color-timer': string;
+  };
 }
 
 export type PublicSettings = Omit<Settings, 'id' | 'user_id' | 'updated_at'>;

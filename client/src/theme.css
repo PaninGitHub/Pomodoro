@@ -81,3 +81,99 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* ===========================================================================
+ * Phase 6 Slice B — Colored themes (F-25 / OQ-03)
+ *
+ * Each [data-theme="X"] block defines the 8-slot palette + 3 fixed semantic
+ * colors + the active font fallback. The list must mirror:
+ *   - client/src/themes/themeConfig.ts THEMES
+ *   - server/utils/validateSettings.ts KNOWN_THEMES
+ * Adding a new theme = add a block here + entries in those two files.
+ * =========================================================================== */
+
+/* Amber Opus — warm dark base, Anthropic coral accent, hue-shifted gold
+ * timer. Backgrounds step ~7–8% in lightness so the layering reads at a
+ * glance; border sits between the deepest text and the lightest bg so it
+ * has its own clear identity slot; timer is hue-shifted from accent (gold
+ * vs coral) so the digits are visually distinct from "active selection" UI. */
+[data-theme="amber-opus"] {
+  --color-bg-primary:    #1c1816;  /* deep warm umber */
+  --color-bg-secondary:  #2d2622;  /* warm cocoa */
+  --color-bg-tertiary:   #3f342d;  /* warm coffee */
+  --color-text-primary:  #f4ecd8;  /* parchment cream */
+  --color-text-secondary:#9c8a78;  /* muted sand */
+  --color-accent:        #cc785c;  /* Anthropic coral */
+  --color-border:        #5a4a3c;  /* medium warm brown */
+  --color-timer:         #d4a574;  /* warm gold */
+
+  --color-error:   #e05252;
+  --color-warning: #d4a017;
+  --color-success: #4caf82;
+  --font-active: 'Inter';
+}
+
+/* High Contrast — WCAG AAA-leaning accessibility theme. Pure black bg,
+ * pure white text + border, canonical high-contrast yellow secondary
+ * text, cyan accent (Windows HC tradition), lime timer so the focal
+ * element pops without sharing white with body text. */
+[data-theme="high-contrast"] {
+  --color-bg-primary:    #000000;  /* pure black */
+  --color-bg-secondary:  #0c0c0c;  /* subtle layer for cards */
+  --color-bg-tertiary:   #1a1a1a;  /* hover state */
+  --color-text-primary:  #ffffff;  /* pure white (21:1 on black) */
+  --color-text-secondary:#ffff00;  /* canonical HC yellow */
+  --color-accent:        #00ffff;  /* cyan — active / focus */
+  --color-border:        #ffffff;  /* crisp white borders */
+  --color-timer:         #00ff00;  /* lime — distinct focal hue */
+
+  --color-error:   #e05252;
+  --color-warning: #d4a017;
+  --color-success: #4caf82;
+  --font-active: 'Inter';
+}
+
+/* Parchment — warm light-mode counterpart to Amber Opus. Cream bgs,
+ * deep umber text, deeper coral accent (the dark-mode coral was too low
+ * contrast on cream), bronze timer. Semantic colors darkened because the
+ * dark-theme defaults wash out on light bgs. */
+[data-theme="parchment"] {
+  --color-bg-primary:    #faf6ea;  /* cream — warmest near-white */
+  --color-bg-secondary:  #f0e9d3;  /* parchment */
+  --color-bg-tertiary:   #e3d8b8;  /* aged paper */
+  --color-text-primary:  #1c1410;  /* deep warm umber */
+  --color-text-secondary:#7a6850;  /* warm brown */
+  --color-accent:        #c4533a;  /* deeper coral for light-bg contrast */
+  --color-border:        #c4b294;  /* muted tan */
+  --color-timer:         #9c6b1d;  /* deep gold / bronze */
+
+  /* Darkened from dark-theme defaults so they hit AA on cream.
+   * Convention break: file header says semantics are "identical across
+   * themes". Light bgs make that physically impossible without
+   * sacrificing contrast — overriding here, intentionally. */
+  --color-error:   #a83232;
+  --color-warning: #8a6510;
+  --color-success: #2d7e4f;
+  --font-active: 'Inter';
+}
+
+/* Summer Sunset — derived from coolors.co/264653-287271-2A9D8F-8AB17D-
+ * E9C46A-F4A261-EE8959-E76F51. Dark teal base with the sunset's warm
+ * orange accent and mustard timer. The original palette's sage (#8AB17D)
+ * lifted slightly to #a3c499 for AA-readable secondary text on the deep
+ * teal bg — the only substantive shift from the source palette. */
+[data-theme="summer-sunset"] {
+  --color-bg-primary:    #1f3a3f;  /* deepened from #264653 for stronger contrast */
+  --color-bg-secondary:  #264653;  /* charcoal teal — palette anchor */
+  --color-bg-tertiary:   #2d5560;  /* lifted teal — hover state */
+  --color-text-primary:  #f4ecd8;  /* cream — readable on dark teal */
+  --color-text-secondary:#a3c499;  /* sage (lifted from #8AB17D for AA) */
+  --color-accent:        #e76f51;  /* burnt sienna — sunset orange */
+  --color-border:        #287271;  /* teal — palette color 2 */
+  --color-timer:         #e9c46a;  /* mustard yellow — the sunset middle */
+
+  --color-error:   #e05252;
+  --color-warning: #d4a017;
+  --color-success: #4caf82;
+  --font-active: 'Inter';
+}

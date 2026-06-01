@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { useSettings } from '../useSettings';
 import { FONTS } from '../../fonts/fontConfig';
+import { THEMES } from '../../themes/themeConfig';
+import { CustomThemeEditor } from '../../themes/CustomThemeEditor';
+import type { CustomTheme } from '../settingsTypes';
 
 const labelCls = 'flex items-center gap-2 text-sm text-text-secondary';
 const selectCls = 'px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary';
 
-const THEMES = [
-  { value: 'bw-dark', label: 'Black & White (Dark)' },
-];
-
 export function AppearanceSettings(): JSX.Element {
   const { settings, updateSettings } = useSettings();
+  // null sentinel = no editor open. CustomTheme | null = editing an
+  // existing custom theme. The string 'new' = create-new mode.
+  const [editing, setEditing] = useState<CustomTheme | null | 'new'>(null);
 
   function onFontChange(family: string) {
     const def = FONTS.find((f) => f.family === family);
@@ -20,16 +23,58 @@ export function AppearanceSettings(): JSX.Element {
     void updateSettings({ font: def.family });
   }
 
+  // Active custom theme (if any) — drives the visibility of the Edit button.
+  const activeCustom = settings.custom_themes.find((t) => t.key === settings.theme) ?? null;
+
   return (
     <>
-      <label className={labelCls}>
-        Theme
-        <select value={settings.theme}
-                onChange={(e) => updateSettings({ theme: e.target.value })}
-                className={selectCls}>
-          {THEMES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-        </select>
-      </label>
+      <div className="flex flex-col gap-2">
+        <label className={labelCls}>
+          Theme
+          <select value={settings.theme}
+                  onChange={(e) => updateSettings({ theme: e.target.value })}
+                  className={selectCls}>
+            {/* Built-in themes first, then a divider, then custom themes
+                (settings.custom_themes is server-sorted by label, stable
+                across edits). */}
+            <optgroup label="Built-in">
+              {THEMES.map((t) => (<option key={t.key} value={t.key}>{t.label}</option>))}
+            </optgroup>
+            {settings.custom_themes.length > 0 && (
+              <optgroup label="Custom">
+                {settings.custom_themes.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </label>
+        <div className="flex items-center gap-2 ml-auto">
+          {activeCustom && (
+            <button
+              type="button"
+              onClick={() => setEditing(activeCustom)}
+              className="px-3 py-1 text-xs rounded border border-border text-text-secondary hover:bg-bg-secondary"
+            >
+              Edit selected theme
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing('new')}
+            className="px-3 py-1 text-xs rounded border border-border text-text-secondary hover:bg-bg-secondary"
+          >
+            + Create custom theme
+          </button>
+        </div>
+      </div>
+
+      {editing !== null && (
+        <CustomThemeEditor
+          initial={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
 
       <label className={labelCls}>
         Font

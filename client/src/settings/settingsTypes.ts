@@ -1,5 +1,24 @@
 // Shared settings shape — mirrors server PublicSettings (Batch D §12.4).
 
+// Phase 6 Slice B — user-defined custom theme entries. Mirrors
+// server/types/db.ts CustomTheme. Slot keys are the same CSS custom
+// properties used by built-in [data-theme] blocks; applied via inline
+// styles on <html> when the active theme key matches a custom entry.
+export interface CustomTheme {
+  key: string;
+  label: string;
+  slots: {
+    '--color-bg-primary': string;
+    '--color-bg-secondary': string;
+    '--color-bg-tertiary': string;
+    '--color-text-primary': string;
+    '--color-text-secondary': string;
+    '--color-accent': string;
+    '--color-border': string;
+    '--color-timer': string;
+  };
+}
+
 export interface Settings {
   work_duration: number;
   short_break_duration: number;
@@ -32,6 +51,7 @@ export interface Settings {
   modal_size: 'small' | 'medium' | 'large';
   shortcuts_enabled: boolean;
   shortcut_bindings: Record<string, string | null> | null;
+  custom_themes: CustomTheme[];
 }
 
 export type PartialSettings = Partial<Settings>;
@@ -69,4 +89,5 @@ export const DEFAULT_SETTINGS: Settings = {
   modal_size: 'medium',
   shortcuts_enabled: true,
   shortcut_bindings: null,
+  custom_themes: [],
 };

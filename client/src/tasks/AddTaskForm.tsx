@@ -43,7 +43,7 @@ export function AddTaskForm(): JSX.Element {
           maxLength={MAX_NAME}
           disabled={atLimit}
           aria-label="Task name"
-          className="flex-1 min-w-[12rem] px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary disabled:opacity-50"
+          className="flex-1 min-w-[12rem] px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary placeholder:text-text-secondary disabled:opacity-50"
         />
         <input
           type="number"
