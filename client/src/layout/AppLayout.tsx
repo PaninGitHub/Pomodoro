@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router-dom';
 import { AuthWidget } from './AuthWidget';
+import { BetaBanner } from './BetaBanner';
 import { useAuth } from '../auth/useAuth';
 import { useGlobalHotkeys } from '../timer/state/useGlobalHotkeys';
 import { useTimerAnnounce } from '../timer/state/useTimerAnnounce';
@@ -17,6 +18,7 @@ export function AppLayout(): JSX.Element {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <BetaBanner />
       {/* Phase 6 Slice B — header is flex-wrap + row-gap so narrow mobile
           viewports (≤ 375px) don't push the AuthWidget off-screen when a
           long display_name + "Log out" button can't fit on one row with the
