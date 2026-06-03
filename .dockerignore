@@ -1,0 +1,33 @@
+# Keep image small and secrets out of build context / layers.
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+
+# Never ship .env files into the image. Compose injects them via env_file
+# at runtime; baking them into image layers leaks secrets to anyone
+# inspecting the image.
+.env
+.env.*
+
+# Build outputs (rebuilt inside the image).
+**/dist
+**/node_modules
+
+# Local logs / tooling.
+*.log
+npm-debug.log*
+
+# Docs that aren't needed at runtime.
+Documentation/
+.planning/
+PROGRESS.md
+*.md
+docs/
+
+# Tests don't ship to runtime (the build stage runs them only if you
+# wire them in; we don't by default).
+**/*.test.ts
+**/*.test.tsx

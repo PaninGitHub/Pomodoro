@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -88,6 +89,26 @@ export function buildApp(config: Config, sql: postgres.Sql): Express {
   app.use('/api/activities', buildActivitiesRouter(sql));
   app.use('/api/break-logs', buildBreakLogsRouter(sql));
   app.use('/api/reports', buildReportsRouter(sql));
+
+  // 8.5. Single-container static client (Phase 6 Slice B beta deploy).
+  // When CLIENT_BUILD_DIR is set, the same Node process serves the built
+  // React SPA from disk. In local dev the var is unset and the client
+  // runs on the Vite dev server with proxy; in the Docker beta image
+  // it points at /app/client/dist (set by the Dockerfile).
+  const clientBuildDir = process.env.CLIENT_BUILD_DIR;
+  if (clientBuildDir) {
+    const resolvedDir = path.resolve(clientBuildDir);
+    // index: false so the static handler doesn't auto-serve index.html
+    // for "/" — the SPA-fallback below handles that uniformly with
+    // every other unmatched client route.
+    app.use(express.static(resolvedDir, { maxAge: '1h', index: false }));
+    // SPA fallback. Any GET that isn't /api/* or a built asset gets
+    // index.html so React Router resolves the route client-side.
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(resolvedDir, 'index.html'));
+    });
+  }
 
   // 9. error handler — must be last
   app.use(errorHandler);

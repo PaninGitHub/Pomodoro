@@ -30,8 +30,12 @@ coverage/
 # TypeScript build info
 *.tsbuildinfo
 
-# Local planning docs (not committed)
-docs/
+# Local planning docs (not committed). Use docs/* (not docs/) so the
+# two named deploy guides can be re-included via the ! lines below —
+# git can't un-ignore a file inside a fully-ignored directory.
+docs/*
+!docs/RUN_LOCALLY.md
+!docs/DEPLOY_HOMELAB.md
 
 # Session handoff docs (per-session scratch; never committed)
 Documentation/handoffs/

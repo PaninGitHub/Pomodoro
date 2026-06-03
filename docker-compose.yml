@@ -1,0 +1,40 @@
+# Homelab beta deploy for Simplidoro.
+#
+# One container: the Node server, which also serves the built React SPA
+# from the same origin. Database is external (Neon beta branch — see
+# .env.beta) so there's no Postgres container. Tailscale Funnel runs on
+# the host (NOT in Docker) and proxies https://<funnel-host>/* to
+# localhost:3001, which Docker has mapped to the container.
+#
+# Why bind to 127.0.0.1: the container should ONLY be reachable from the
+# host (where Funnel lives). LAN exposure is unnecessary and a needless
+# attack surface. Funnel is the single public ingress.
+#
+# Bring it up:    docker compose up -d --build
+# Migrate:        docker compose exec app node server/dist/db/migrate.js
+# Logs:           docker compose logs -f app
+# Down:           docker compose down
+
+services:
+  app:
+    container_name: simplidoro-beta
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Show the "Public beta — don't refresh mid-session" banner.
+        # Flip to empty string and rebuild to disable.
+        VITE_BETA_BANNER: "1"
+    image: simplidoro-beta:latest
+    env_file: .env.beta
+    ports:
+      - "127.0.0.1:3001:3001"
+    restart: unless-stopped
+    # Light healthcheck — hits the same /api/health that we curl in the
+    # smoke test. Container restart on repeated failure.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
